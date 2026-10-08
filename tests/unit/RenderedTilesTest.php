@@ -21,6 +21,18 @@ final class RenderedTilesTest extends TestCase
         self::assertContains('rendered', $radius->supportedInputs());
     }
 
+    public function testTokensWithSeveralPartsNameTheOnesToDraw(): void
+    {
+        $tone = Group::fromConfig('tone', ['preview' => ['bg', 'text'], 'auto' => 'Block default'], [
+            'primary' => ['label' => 'Brand primary', 'bg' => 'bg-primary', 'text' => 'text-primary-fg', 'border' => 'border-primary'],
+            'plain' => ['label' => 'Plain', 'bg' => 'bg-bg'],
+        ]);
+
+        self::assertSame('bg-primary text-primary-fg', $tone->options['primary']['preview'], 'the named parts, in that order');
+        self::assertSame('bg-bg', $tone->options['plain']['preview'], 'a missing part is left out');
+        self::assertContains('rendered', $tone->supportedInputs());
+    }
+
     public function testOptionsCanNameTheirOwnClasses(): void
     {
         $card = Group::fromConfig('cardStyle', ['optionMeta' => [

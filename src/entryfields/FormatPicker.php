@@ -24,7 +24,7 @@ final class FormatPicker
     // =========================================================================
 
     /** Every format a row can name. `auto` picks one by field type. */
-    public const FORMATS = ['auto', 'text', 'rich', 'badge', 'files', 'image', 'cover', 'links', 'chips', 'date', 'dateTime', 'time', 'price', 'table', 'icon', 'color', 'map', 'dates', 'items', 'pageBuilder', 'element', 'part'];
+    public const FORMATS = ['auto', 'text', 'rich', 'badge', 'files', 'image', 'cover', 'carousel', 'links', 'chips', 'date', 'dateTime', 'time', 'price', 'table', 'icon', 'color', 'map', 'dates', 'items', 'pageBuilder', 'element', 'part'];
 
     /** Element attributes a row may name besides custom fields. `price`/`sku` resolve on Commerce products. */
     /** Parts of a Commerce product page, shown as rows of the product block. */
@@ -76,6 +76,7 @@ final class FormatPicker
         'files' => ['craft\fields\Assets'],
         'image' => ['craft\fields\Assets'],
         'cover' => ['craft\fields\Assets'],
+        'carousel' => ['craft\fields\Assets'],
         'links' => ['verbb\hyper\fields\HyperField', 'craft\fields\Link', 'craft\fields\Url', 'craft\fields\Email', 'craft\fields\Entries', 'craft\fields\Categories'],
         'chips' => ['craft\fields\Entries', 'craft\fields\Categories', 'craft\fields\Tags', 'craft\fields\Users'],
         'date' => ['craft\fields\Date'],

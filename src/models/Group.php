@@ -200,10 +200,16 @@ class Group
         }
 
         // Rendered tiles: an option's own `preview` classes, or with `preview: true` its token
-        // value (`rounded-2xl`), on top of `previewBase` (what makes the shape visible).
+        // value (`rounded-2xl`), or with a list the token parts to draw (`['bg', 'text']`), on
+        // top of `previewBase` (what makes the shape visible).
         $base = trim((string)($config['previewBase'] ?? ''));
+        $parts = $config['preview'] ?? null;
         foreach ($options as $key => $option) {
-            $own = $option['preview'] ?? (!empty($config['preview']) ? ($option['parts']['value'] ?? null) : null);
+            $own = $option['preview'] ?? match (true) {
+                is_array($parts) => implode(' ', array_filter(array_map(static fn($part) => trim((string)($option['parts'][$part] ?? '')), $parts))) ?: null,
+                !empty($parts) => $option['parts']['value'] ?? null,
+                default => null,
+            };
             $options[$key]['preview'] = $key !== self::AUTO && $own !== null ? trim("$base $own") : null;
         }
 

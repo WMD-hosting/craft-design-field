@@ -14,6 +14,7 @@ use craft\helpers\Html;
 use craft\helpers\Json;
 use craft\web\View;
 use wmd\designfield\helpers\Motion;
+use wmd\designfield\helpers\OptionOrder;
 use wmd\designfield\helpers\Registry;
 use wmd\designfield\helpers\Sections;
 use wmd\designfield\models\DesignValue;
@@ -50,12 +51,13 @@ class GroupInput
      * @param string $fieldHandle Design field handle, for input names
      * @param bool $disabled
      * @param bool $visible Whether the group applies to the current choices
+     * @param array<string,int> $counts How many blocks picked each key, for "Most used" in long dropdowns
      * @return string
      *
      * @author WMD
      * @since 1.0.0
      */
-    public static function render(Group $group, string $selected, string $fieldHandle, bool $disabled, bool $visible): string
+    public static function render(Group $group, string $selected, string $fieldHandle, bool $disabled, bool $visible, array $counts = []): string
     {
         self::registerAssets();
 
@@ -86,7 +88,10 @@ class GroupInput
         ];
 
         return match ($group->input) {
-            Group::INPUT_SELECT => Cp::selectFieldHtml($config + ['options' => self::_plainOptions($group)]),
+            // A long list gets a search box and the most used choices on top.
+            Group::INPUT_SELECT => count($group->options) >= OptionOrder::LONG
+                ? Cp::selectizeFieldHtml($config + ['options' => self::_longOptions($group, $counts)])
+                : Cp::selectFieldHtml($config + ['options' => self::_plainOptions($group)]),
             Group::INPUT_SWATCHES => Cp::buttonGroupFieldHtml($config + ['options' => self::_swatchOptions($group)]),
             Group::INPUT_TILES => Cp::fieldHtml(self::_tiles($group, $name, $selected, $disabled), $config + ['fieldset' => true]),
             Group::INPUT_MOTION => Cp::fieldHtml(self::_motion($group, $name, $selected, $disabled), $config + ['fieldset' => true]),
@@ -165,7 +170,8 @@ class GroupInput
         $keys = $value->keys();
         $html = self::presets($registry->presetsFor($profile, $value->groups()), $value->groups(), false);
 
-        $html .= self::fields($value->groups(), $keys, 'dfPreview', false);
+        $usage = OptionOrder::countsFor(Plugin::getInstance()->getUsage()->counts(), $profile);
+        $html .= self::fields($value->groups(), $keys, 'dfPreview', false, 'sections', $usage);
 
         $html = preg_replace('/<(input|select|textarea|button)\b/', '<$1 form="df-preview"', $html);
 
@@ -182,12 +188,14 @@ class GroupInput
      * @param string $fieldHandle
      * @param bool $disabled
      * @param string $layout Design::LAYOUT_*: 'inline' drops the headings; 'side' sizes each section by its option count
+     * @param array<string,array<string,int>> $usage Pick counts per group, for "Most used" in long dropdowns
+     * @param string[] $hidden Groups left out of this panel; their values are still posted
      * @return string
      *
      * @author WMD
      * @since 1.0.0
      */
-    public static function fields(array $groups, array $keys, string $fieldHandle, bool $disabled, string $layout = 'sections'): string
+    public static function fields(array $groups, array $keys, string $fieldHandle, bool $disabled, string $layout = 'sections', array $usage = [], array $hidden = []): string
     {
         $html = '';
 
@@ -197,7 +205,16 @@ class GroupInput
             $chipsAt = null;
             $count = 0;
             foreach ($section['groups'] as $handle) {
-                $input = self::render($groups[$handle], $keys[$handle], $fieldHandle, $disabled, $groups[$handle]->appliesTo($keys));
+                // Left out of this panel (DefinePanelGroupsEvent): its value is still posted, and
+                // conditions and the preview still read it.
+                if (in_array((string)$handle, $hidden, true)) {
+                    $fields .= Html::tag('div', Html::hiddenInput("{$fieldHandle}[$handle]", $keys[$handle]), [
+                        'data' => ['df-group' => $handle, 'df-hidden-group' => true],
+                        'hidden' => true,
+                    ]);
+                    continue;
+                }
+                $input = self::render($groups[$handle], $keys[$handle], $fieldHandle, $disabled, $groups[$handle]->appliesTo($keys), $usage[$handle] ?? []);
                 // A section's chips share one row, where its first chip is.
                 if ($groups[$handle]->input === Group::INPUT_CHIP) {
                     $chipsAt ??= strlen($fields);
@@ -224,6 +241,8 @@ class GroupInput
                     [
                         'class' => 'df-section',
                         'open' => true,
+                        // Every option in it left out of this panel.
+                        'hidden' => $count === 0 && $chips === '' ? true : null,
                         'data' => ['df-section' => $section['label']],
                         // Side by side: a section asks for one column per option (its Switches row is one);
                         // the panel script recounts the shown ones.
@@ -344,6 +363,32 @@ class GroupInput
         $options = [];
         foreach ($group->options as $key => $option) {
             $options[] = ['label' => $option['label'], 'value' => $key];
+        }
+
+        return $options;
+    }
+
+    /**
+     * Options of a long dropdown: the most used first, under their own heading.
+     *
+     * @param Group $group
+     * @param array<string,int> $counts
+     * @return array<int,array<string,string>>
+     */
+    private static function _longOptions(Group $group, array $counts): array
+    {
+        $split = OptionOrder::split(array_map('strval', array_keys($group->options)), $counts);
+        if ($split['top'] === []) {
+            return self::_plainOptions($group);
+        }
+
+        $options = [['optgroup' => Craft::t('design-field', 'Most used')]];
+        foreach ($split['top'] as $key) {
+            $options[] = ['label' => $group->options[$key]['label'], 'value' => $key];
+        }
+        $options[] = ['optgroup' => Craft::t('design-field', 'Other options')];
+        foreach ($split['rest'] as $key) {
+            $options[] = ['label' => $group->options[$key]['label'], 'value' => $key];
         }
 
         return $options;
@@ -935,6 +980,13 @@ window.DesignField = window.DesignField || (function() {
         }
         if (count) { count.textContent = chips.length ? Craft.t('design-field', '{n, plural, =1{1 change} other{# changes}}', {n: chips.length}) : Craft.t('design-field', 'Defaults'); }
     }
+    // A searchable dropdown (Selectize) tells only jQuery about a pick, and its list sits
+    // outside the panel: pass the change on as a native event from the select itself.
+    if (window.jQuery) {
+        window.jQuery(document).on('change', '.design-field select.selectized', function(event) {
+            if (!event.originalEvent) { this.dispatchEvent(new Event('change', {bubbles: true})); }
+        });
+    }
     // Motion tiles play their motion once when picked.
     document.addEventListener('change', function(event) {
         var tile = event.target.closest && event.target.closest('.df-motion');
@@ -1011,6 +1063,12 @@ window.DesignField = window.DesignField || (function() {
             return;
         }
         var select = field.querySelector('select');
+        if (select && select.selectize) {
+            // While focused, Craft's select_on_focus has swapped the item for search text.
+            if (select.selectize.isFocused) { select.selectize.blur(); }
+            select.selectize.setValue(key);
+            return;
+        }
         if (select) { select.value = key; select.dispatchEvent(new Event('change', {bubbles: true})); }
     }
     // A preset button: set each of its choices, then show what now applies.

@@ -103,6 +103,22 @@ final class FormatPickerTest extends TestCase
         self::assertFalse(FormatPicker::fits('cover', 'craft\fields\PlainText'));
     }
 
+    public function testCarouselFitsAssetsOnly(): void
+    {
+        self::assertContains('carousel', FormatPicker::all());
+        self::assertTrue(FormatPicker::fits('carousel', 'craft\fields\Assets'));
+        self::assertTrue(FormatPicker::fits('carousel', 'vendor\fields\MyAssets', ['craft\fields\Assets']), 'subclasses of Assets fit too');
+        self::assertFalse(FormatPicker::fits('carousel', 'craft\fields\Entries'));
+        self::assertFalse(FormatPicker::fits('carousel', 'craft\fields\Matrix'));
+        self::assertFalse(FormatPicker::nativeFits('carousel', 'title'), 'no native attribute holds images');
+    }
+
+    public function testCarouselIsNeverAuto(): void
+    {
+        self::assertSame('files', FormatPicker::auto('craft\fields\Assets'));
+        self::assertNotSame('carousel', FormatPicker::refineAssets(['image', 'image', 'image']), 'many images still default to the grid');
+    }
+
     public function testMatrixShape(): void
     {
         $blocks = [['handle' => 'blockText', 'fields' => ['body'], 'block' => true], ['handle' => 'blockCta', 'fields' => [], 'block' => true]];

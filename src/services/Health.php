@@ -138,7 +138,7 @@ class Health extends Component
             $deadFindings[] = ['level' => self::WARNING, 'message' => count($blocks) === 1
                 ? Craft::t('design-field', '“{option}” is offered on {blocks}, but no template reads it, so changing it does nothing. Remove it from the block, or use it in a template.', ['option' => $option, 'blocks' => $blocks[0]])
                 : Craft::t('design-field', '“{option}” is offered on {n} blocks ({blocks}), but none of their templates read it, so changing it does nothing. Remove it from those blocks, or use it in their templates.', ['option' => $option, 'n' => count($blocks), 'blocks' => $this->_list($blocks)]),
-                'url' => count($blocks) === 1 ? $info['url'] : null, 'block' => implode(', ', $blocks)];
+                'url' => count($blocks) === 1 ? $info['url'] : null, 'block' => implode(', ', $blocks), ];
         }
         $findings = array_merge($deadFindings, $findings);
 

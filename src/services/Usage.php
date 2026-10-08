@@ -9,10 +9,12 @@ namespace wmd\designfield\services;
 
 use Craft;
 use craft\elements\Entry;
+use craft\helpers\Queue;
 use DateTimeInterface;
 use Throwable;
 use wmd\designfield\fields\Design;
 use wmd\designfield\helpers\UsageReport;
+use wmd\designfield\jobs\UsageCountsJob;
 use wmd\designfield\models\DesignValue;
 use yii\base\Component;
 
@@ -26,6 +28,14 @@ use yii\base\Component;
  */
 class Usage extends Component
 {
+    // Const Properties
+    // =========================================================================
+
+    /**
+     * Cache key of counts().
+     */
+    public const COUNTS_KEY = 'design-field:usage-counts';
+
     // Public Methods
     // =========================================================================
 
@@ -90,5 +100,54 @@ class Usage extends Component
         }
 
         return $report;
+    }
+
+    /**
+     * How many blocks picked each choice, by entry type, option and key, for "Most used"
+     * in long dropdowns. Cached for a day; when the cache is empty this returns nothing and
+     * a queue job counts in the background (reading every entry is too slow for a page load).
+     *
+     * @return array<string,array<string,array<string,int>>> Entry type => option => key => count
+     *
+     * @author WMD
+     * @since 1.0.0
+     */
+    public function counts(): array
+    {
+        $cache = Craft::$app->getCache();
+        $counts = $cache->get(self::COUNTS_KEY);
+
+        if (is_array($counts)) {
+            return $counts;
+        }
+
+        // One job at a time, even when many editors open pages at once.
+        if ($cache->add(self::COUNTS_KEY . ':queued', true, 600)) {
+            Queue::push(new UsageCountsJob());
+        }
+
+        return [];
+    }
+
+    /**
+     * Keeps a report's counts for counts(): the job, and the settings page's usage report,
+     * which counted everything anyway.
+     *
+     * @param array<string,array{entries:int,groups:array<string,array<string,mixed>>}> $report report() for every type
+     * @return void
+     *
+     * @author WMD
+     * @since 1.0.0
+     */
+    public function storeCounts(array $report): void
+    {
+        $counts = [];
+        foreach ($report as $type => $data) {
+            foreach ($data['groups'] as $handle => $group) {
+                $counts[(string)$type][(string)$handle] = array_map('intval', (array)($group['counts'] ?? []));
+            }
+        }
+
+        Craft::$app->getCache()->set(self::COUNTS_KEY, $counts, 86400);
     }
 }

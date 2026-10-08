@@ -27,7 +27,7 @@ New to Design Field, with no options yet? About ten minutes:
    ```
 4. **Load the stylesheet** once in your layout, for the entrances (and, in Plain CSS, every starter class): `{% do craft.designField.starterCss() %}`. Recolour it with custom properties: `:root { --df-brand: #0f766e; }`.
 5. **Tailwind only:** Tailwind builds only the classes it finds in your files, and the starter's classes live in project config. Add `@source "../config/project/**/*.yaml";` to your main CSS (path from that file), or keep the classes in a template comment.
-6. **Optional, the live preview:** copy `examples/block-preview.twig` (instructions inside) so the settings page shows each block next to its options and can make tile pictures.
+6. **Optional, the live preview:** copy `examples/block-preview.twig` (instructions inside) so the settings page shows each block next to its options and can make tile pictures. It shows the newest live block of each type, so a new site needs one filled-in block per type: a disabled page (e.g. "Blocks") holding one of each works, and visitors never see it.
 
 Sites that already have option fields: see **Tidy up** below.
 
@@ -130,7 +130,7 @@ On/off options (exactly two choices) can also show as a **Chip**: a pill that is
 
 **Motion tiles** show animation choices (entrance, slide transition) as small tiles that play their motion on hover, on keyboard focus and once when picked; they stay still when the editor's system asks for reduced motion. Entrances: `fade`, `fade-up`, `fade-down`, `from-left`, `from-right`, `zoom-in`, `zoom-out`, `flip-in`, `blur-in`. Transitions (two slides): `slide`, `crossfade`, `fade-through`, `cube`, `coverflow`, `flip`, `cards`, `creative`. A choice plays the preset its key names (`zoom` and `fadeOutIn` work too), or the one it sets as `'motion' => 'crossfade'` (in its options or `optionMeta`). The look is offered when two choices match a preset or one names its motion. The tiles only suggest the motion; the site plays the real one.
 
-**Rendered tiles** draw each choice as a small card with the site's own stylesheet and brand, so Corner radius and Card style show the brand's real radius, border and shadow. A choice's classes come from its `preview` (in its options or `optionMeta`), or with `'preview' => true` on the group from its token value (`rounded-2xl`); `previewBase` adds classes every tile shares (`'border border-border bg-surface'`, so a radius is visible). The look is offered when every choice has classes. Set `previewStylesheet` (URL, alias or env var of the site's built CSS) and `previewAttributes` (e.g. `['data-brand' => 'default']`) in `config/design-field.php`; without a stylesheet the tiles fall back to buttons. They are drawn in a shadow root, so the site's reset stays out of the control panel.
+**Rendered tiles** draw each choice as a small card with the site's own stylesheet and brand, so Corner radius and Card style show the brand's real radius, border and shadow. A choice's classes come from its `preview` (in its options or `optionMeta`), or with `'preview' => true` on the group from its token value (`rounded-2xl`), or for tokens with several parts from the parts you name (`'preview' => ['bg', 'text']` draws a section tone with its real background and text colour, so editors see the contrast); `previewBase` adds classes every tile shares (`'border border-border bg-surface'`, so a radius is visible). The look is offered when every choice has classes. Set `previewStylesheet` (URL, alias or env var of the site's built CSS) and `previewAttributes` (e.g. `['data-brand' => 'default']`) in `config/design-field.php`; without a stylesheet the tiles fall back to buttons. They are drawn in a shadow root, so the site's reset stays out of the control panel.
 
 Buttons have three looks: **Icons** (icon, name on hover), **Buttons** (as configured: icon and label, or an "Aa" size sample) and **Labels only** (plain text).
 
@@ -276,6 +276,8 @@ On the settings page, the **Tidy up** tab shows the same report as one card per 
 
 The same report runs from the settings page (**Run usage report**). It shows, per block, the options editors never changed from the default (drop them from that block, or hardcode them in the template), options where every entry picked the same choice (make it the default), and layouts nobody uses. A site-wide summary lists the options no editor changed in any block. Blocks with fewer than `--sample` entries (default 5) are marked as hints. Drafts and revisions are not counted.
 
+The counts also order **long dropdowns** (10 choices or more): editors get a search box, with the three most picked choices for that block type under **Most used** at the top (a block type with no picks for that option yet uses the counts across the site). The counts come from a queue job and are kept for a day; running the full report on the settings page refreshes them.
+
 ## Tile pictures
 
 Layout options show as **Picture tiles** when each layout has a picture. A picture comes from the config (`'image' => '/design-field/blockCta/split.jpg'`), or from a file at `tileImages` (default `/design-field/{type}/{key}.jpg` under the web root): a layout without a configured picture gets the file found there, and a layout list where every layout has one shows as tiles unless the config names another look.
@@ -291,6 +293,35 @@ The **Tidy up** tab is for sites that already have option fields, and for trimmi
 - **Option fields on your blocks** (**Scan option fields**): every Dropdown, Button Group, Radio Buttons, Lightswitch, Button Box Buttons field and Color palette on your entry types, and what **Move** would do with each: *moves into this option*, *new option, not in the configuration yet*, or a warning (an option that lacks some stored values, or one meant for something else). A Lightswitch becomes an on/off Chip (stored `1`/`0` carry over through aliases); a Color field with a fixed palette becomes Swatches with Block default kept as the default (fields that allow custom colours are left out). A field no template of its block reads is marked *not read by any template yet*: unfinished or left over, so decide before moving it. Some fields are behaviour, not design (a source, a sort order): leave those. **Preview the config** shows what `design-field/import` would write for that block, to merge into `config/design-field.php` (or, if you configure in the settings tables, to add there: a config file would override them). **Move this block** is offered only when the rows show something that moves and nothing blocks it. It first checks every stored value against the options (nothing changes if one has no match), asks, then runs `design-field/adopt` as a queue job (one per block at a time): the Design field joins the layout, values are copied and checked in the database, and only then do the old fields leave the layout (their values stay in the content rows). Moving changes field layouts, so admin changes must be allowed.
 - **Brief for an agent**: **Copy brief** gives a prompt for Claude or another agent with your option fields, what Move would do with them, how converted fields are read, what the template check found and the commands that move the data, for Twig (any CSS framework) or headless sites reading GraphQL. Over plain HTTP, where browsers block the clipboard, the brief opens selected.
 - **Usage**: the report above, plus, on blocks with their own profile, **Make “X” the default** where every block picks the same choice (new blocks then start there), and **Hide** on a choice that block never uses (hover a choice). Hide only leaves the choice out of that block's picker: it stays a valid option, so saved blocks, presets and other blocks that share the option are unaffected, and a block that has it still sees it. The default and Auto are never hidden. Both are saved with the page's **Save**, in project config, and listed under **Changed on this page** with **Undo**.
+
+## Choices per entry
+
+Some choices only make sense for some entries: a "list the entries from this field" option should offer the fields the page has, not every field in the install. Before a panel is drawn, the Design field fires `Design::EVENT_DEFINE_PANEL_GROUPS` with the element being edited and its options; replace an option with `withHidden()` to leave choices out of the picker:
+
+```php
+use craft\elements\Entry;
+use wmd\designfield\events\DefinePanelGroupsEvent;
+use wmd\designfield\fields\Design;
+use yii\base\Event;
+
+Event::on(Design::class, Design::EVENT_DEFINE_PANEL_GROUPS, function(DefinePanelGroupsEvent $event) {
+    $group = $event->groups['sourceField'] ?? null;
+    $owner = $event->element instanceof Entry ? $event->element->getOwner() : null;
+    if ($group === null || !$owner instanceof Entry) {
+        return;
+    }
+    $onPage = array_map(fn($field) => $field->handle, $owner->getFieldLayout()->getCustomFields());
+    // Keep the hidden choices already set on the settings page.
+    $event->groups['sourceField'] = $group->withHidden([
+        ...$group->hidden,
+        ...array_diff(array_keys($group->options), $onPage),
+    ]);
+});
+```
+
+Only the picker changes: every option stays valid, so stored values, presets and templates are unaffected, a block that already has a hidden choice still shows it, and Block default and the default always show.
+
+To leave a whole option out of one entry's panel, add its handle to `$event->hiddenGroups` (for example a "Related to this page" switch on pages where there is nothing to relate to). It keeps its stored value, and conditions that depend on it still read it. `$event->keys` holds the current choices, so an option that is already set can stay visible.
 
 ## GraphQL
 

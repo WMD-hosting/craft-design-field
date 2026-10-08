@@ -34,10 +34,11 @@
     {% include '_blocks/' ~ block.type.handle with { block: block } only %}
   {% else %}
     {#
-      No block of this type on any page yet. Optional: sample content per type, e.g.
-      templates/_design-samples/blockCta.twig rendering the block from a plain map.
+      No block of this type on any page yet. Simplest fix: a disabled page (e.g. "Blocks")
+      with one filled-in block of each type. Its blocks are still live, so the preview and
+      Make tile pictures use them, and visitors never see the page. An empty block is no
+      help: with no text or items most layouts draw an empty band.
     #}
-    {% include '_design-samples/' ~ type ignore missing %}
-    <p style="padding: 2rem; font-family: system-ui, sans-serif; color: #6b7280">No {{ type }} on any page yet. Add one to preview it here.</p>
+    <p style="padding: 2rem; font-family: system-ui, sans-serif; color: #6b7280">No {{ type }} on any page yet. Add one with some content, for example to a disabled “Blocks” page, to preview it here.</p>
   {% endif %}
 {% endblock %}

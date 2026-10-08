@@ -18,6 +18,8 @@ use craft\helpers\Html;
 use craft\helpers\Json;
 use craft\helpers\UrlHelper;
 use GraphQL\Type\Definition\Type;
+use wmd\designfield\events\DefinePanelGroupsEvent;
+use wmd\designfield\helpers\OptionOrder;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
 use wmd\designfield\Plugin;
@@ -39,6 +41,11 @@ class Design extends Field implements PreviewableFieldInterface
 {
     // Public Properties
     // =========================================================================
+
+    /**
+     * @event DefinePanelGroupsEvent Before a panel is drawn: hide or relabel choices for the element being edited.
+     */
+    public const EVENT_DEFINE_PANEL_GROUPS = 'definePanelGroups';
 
     /**
      * View mode: every option open in a grid.
@@ -323,10 +330,11 @@ class Design extends Field implements PreviewableFieldInterface
         }
 
         $keys = $value->keys();
+        [$groups, $hidden] = $this->_panelGroups($value->groups(), $keys, $element);
         $presets = Plugin::getInstance()->getGroups()->getRegistry()->presetsFor($this->_profilesFor($element), $value->groups());
-        $html = GroupInput::presets($presets, $value->groups(), $this->static);
+        $html = GroupInput::presets($presets, $groups, $this->static);
 
-        $html .= GroupInput::fields($value->groups(), $keys, $this->handle, $this->static, $this->optionLayout);
+        $html .= GroupInput::fields($groups, $keys, $this->handle, $this->static, $this->optionLayout, $this->_usageFor($groups, $element), $hidden);
 
         return GroupInput::view($this->viewMode, $value, Html::tag('div', $html, [
             'class' => ['design-field', $this->optionLayout === self::LAYOUT_SIDE ? 'df-side' : null],
@@ -335,6 +343,51 @@ class Design extends Field implements PreviewableFieldInterface
 
     // Private Methods
     // =========================================================================
+
+    /**
+     * The panel's options after EVENT_DEFINE_PANEL_GROUPS: handlers may replace a group or
+     * hide one, never add or drop one (every option is posted and stored).
+     *
+     * @param array<string,Group> $groups
+     * @param array<string,string> $keys
+     * @param ?ElementInterface $element
+     * @return array{0:array<string,Group>,1:string[]} The groups, and the handles hidden in this panel
+     */
+    private function _panelGroups(array $groups, array $keys, ?ElementInterface $element): array
+    {
+        if (!$this->hasEventHandlers(self::EVENT_DEFINE_PANEL_GROUPS)) {
+            return [$groups, []];
+        }
+
+        $event = new DefinePanelGroupsEvent(['element' => $element, 'groups' => $groups, 'keys' => $keys]);
+        $this->trigger(self::EVENT_DEFINE_PANEL_GROUPS, $event);
+
+        foreach ($groups as $handle => $group) {
+            if (($event->groups[$handle] ?? null) instanceof Group) {
+                $groups[$handle] = $event->groups[$handle];
+            }
+        }
+
+        return [$groups, array_values(array_intersect(array_map('strval', array_keys($groups)), $event->hiddenGroups))];
+    }
+
+    /**
+     * Pick counts for "Most used" in long dropdowns; only read when the panel has one.
+     *
+     * @param array<string,Group> $groups
+     * @param ?ElementInterface $element
+     * @return array<string,array<string,int>> Option => key => count
+     */
+    private function _usageFor(array $groups, ?ElementInterface $element): array
+    {
+        foreach ($groups as $group) {
+            if ($group->input === Group::INPUT_SELECT && count($group->options) >= OptionOrder::LONG) {
+                return OptionOrder::countsFor(Plugin::getInstance()->getUsage()->counts(), self::typeHandle($element));
+            }
+        }
+
+        return [];
+    }
 
     /**
      * Profile candidates for an element, most specific first.

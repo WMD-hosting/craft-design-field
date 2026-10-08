@@ -29,9 +29,9 @@ use wmd\designfield\services\Converter;
 use wmd\designfield\services\EntryFieldsRenderer;
 use wmd\designfield\services\Groups;
 use wmd\designfield\services\Health;
+use wmd\designfield\services\Importer;
 use wmd\designfield\services\TemplateChecker;
 use wmd\designfield\services\Tidy;
-use wmd\designfield\services\Importer;
 use wmd\designfield\services\Usage;
 use wmd\designfield\variables\DesignFieldVariable;
 use wmd\designfield\variables\EntryFieldsVariable;
@@ -325,7 +325,12 @@ class Plugin extends BasePlugin
         if ($error === null && Craft::$app->getRequest()->getQueryParam('usage')) {
             // ?months=12: only blocks saved in the last year, for the yearly "what do editors still touch" review.
             $months = max(0, (int)Craft::$app->getRequest()->getQueryParam('months', 0));
-            $usage = UsageReport::summarize($this->getUsage()->report([], $months > 0 ? new \DateTimeImmutable("-$months months") : null));
+            $report = $this->getUsage()->report([], $months > 0 ? new \DateTimeImmutable("-$months months") : null);
+            if ($months === 0) {
+                // Counted everything anyway: refresh "Most used" in long dropdowns too.
+                $this->getUsage()->storeCounts($report);
+            }
+            $usage = UsageReport::summarize($report);
             $usage['months'] = $months;
             $usage['typeInfo'] = [];
             foreach (Craft::$app->getEntries()->getAllEntryTypes() as $type) {

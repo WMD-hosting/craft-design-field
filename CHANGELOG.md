@@ -1,5 +1,12 @@
 # Release Notes for Design Field
 
+## 1.0.2 - 2026-10-08
+
+### Added
+- Long dropdowns (10 choices or more) are searchable and show the three most picked choices for that block type first, under **Most used**. Counts come from the usage report, worked out by a queue job and cached for a day.
+- Rendered tiles can draw several token parts: `'preview' => ['bg', 'text']` shows a tone's real background and text colour.
+- `Design::EVENT_DEFINE_PANEL_GROUPS` (`DefinePanelGroupsEvent`): hide choices or whole options per entry before a panel is drawn (`hiddenGroups`; hidden options keep their value).
+
 ## 1.0.1 - 2026-10-08
 
 ### Changed
