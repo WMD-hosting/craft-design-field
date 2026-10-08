@@ -33,7 +33,7 @@ Sites that already have option fields: see **Tidy up** below.
 
 ## Editions
 
-**Draft** (free) has every feature. **Published** is for people who like it: nothing is locked, it buys priority answers and a say in the roadmap. The settings page shows one quiet line on Draft ("Like it? Publish it →") and "Published ✓" on Published; there are no banners.
+**Standard** (free) has every feature. **Pro** is for people who like it: nothing is locked, it buys priority answers and a say in the roadmap. The settings page shows one quiet line on Standard ("Like it? Go Pro →") and "Pro ✓" on Pro; there are no banners.
 
 ## Requirements
 

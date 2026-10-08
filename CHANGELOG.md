@@ -1,5 +1,10 @@
 # Release Notes for Design Field
 
+## 1.0.1 - 2026-10-08
+
+### Changed
+- The editions are now **Standard** (free, every feature) and **Pro** (for people who like it; nothing is gated), matching the Plugin Store's edition handles. Installs on Draft move to Standard on their own.
+
 ## 1.0.0 - 2026-10-08
 
 First release.

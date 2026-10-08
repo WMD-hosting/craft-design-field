@@ -29,12 +29,12 @@
   {% set contentNotice = readOnlyNotice() %}
 {% endif %}
 
-{# Editions: nothing is gated. Draft gets one quiet line inviting a licence; Published says thanks. #}
+{# Editions: nothing is gated. Standard gets one quiet line inviting a licence; Pro says thanks. #}
 {% set toolbar %}
-  {% if plugin.is('published') %}
-    <span class="light">{{ 'Published ✓'|t('design-field') }}</span>
+  {% if plugin.is('pro') %}
+    <span class="light">{{ 'Pro ✓'|t('design-field') }}</span>
   {% else %}
-    <span class="light">{{ 'You’re on Draft.'|t('design-field') }} <a href="{{ cpUrl('plugin-store/' ~ plugin.handle) }}">{{ 'Like it? Publish it →'|t('design-field') }}</a></span>
+    <span class="light">{{ 'You’re on Standard.'|t('design-field') }} <a href="{{ cpUrl('plugin-store/' ~ plugin.handle) }}">{{ 'Like it? Go Pro →'|t('design-field') }}</a></span>
   {% endif %}
 {% endset %}
 
