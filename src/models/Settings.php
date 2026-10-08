@@ -78,39 +78,6 @@ class Settings extends Model
     public ?array $presets = null;
 
     /**
-     * @var array<string,array<string,mixed>> Entry Fields presets: name => label and rows, from `config/design-field.php`
-     */
-    public array $entryFieldPresets = [];
-
-    /**
-     * @var list<string> Block types whose Entry Fields offer only their owner's fields (or the owner's target section)
-     */
-    public array $entryFieldOwnerBlocks = ['blockContent', 'blockProductDetail'];
-
-    /**
-     * @var string Handle of the section field on layout entries that names the section they drive; '' to ignore
-     */
-    public string $entryFieldTargetSectionField = 'targetSection';
-
-    /**
-     * @var string Handle of a block's own section field (the Entry List's Section): while sections are
-     *             ticked there, the block's Field dropdown offers only their fields; '' to ignore
-     */
-    public string $entryFieldSectionField = 'sectionRef';
-
-    /**
-     * @var string Handle of the section whose entries rows with format `element` can render
-     */
-    public string $entryFieldElementSection = 'globalElements';
-
-    /**
-     * @var array<string,array{label?:string, fits?:list<string>}> The developer's own Entry Fields formats:
-     * name => label and the field types it fits (`Assets`, `Number`, or a full class name). Each renders
-     * `templates/_atoms/entry-field/custom/{name}.twig` with `value`, `entry`, `row`, `field`, `block`.
-     */
-    public array $entryFieldCustomFormats = [];
-
-    /**
      * @var array{styles:array<string,string>,groups:array<string,array{input:string,iconsOnly:bool,textOnly?:bool}>,profiles:array<string,array<string,array{input:string,iconsOnly:bool,textOnly?:bool}>>,meta:array<string,array<string,array{label?:string,icon?:string}>>,sections:array<string,string>,defaults:array<string,array<string,string>>,hidden:array<string,array<string,string[]>>}
      * Looks picked on the settings page: a style swapped site-wide, one option on every block, one
      * option on one block, other labels or icons for options, section headings, and from the Tidy

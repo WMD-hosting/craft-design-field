@@ -18,15 +18,12 @@ use craft\helpers\UrlHelper;
 use craft\services\Fields;
 use craft\web\twig\variables\CraftVariable;
 use InvalidArgumentException;
-use wmd\designfield\entryfields\FormatPicker;
 use wmd\designfield\fields\Design;
-use wmd\designfield\fields\EntryFields;
 use wmd\designfield\helpers\Registry;
 use wmd\designfield\helpers\Starter;
 use wmd\designfield\helpers\UsageReport;
 use wmd\designfield\models\Settings;
 use wmd\designfield\services\Converter;
-use wmd\designfield\services\EntryFieldsRenderer;
 use wmd\designfield\services\Groups;
 use wmd\designfield\services\Health;
 use wmd\designfield\services\Importer;
@@ -34,7 +31,6 @@ use wmd\designfield\services\TemplateChecker;
 use wmd\designfield\services\Tidy;
 use wmd\designfield\services\Usage;
 use wmd\designfield\variables\DesignFieldVariable;
-use wmd\designfield\variables\EntryFieldsVariable;
 use wmd\designfield\web\SettingsPreview;
 use yii\base\Event;
 use yii\db\Expression;
@@ -50,7 +46,6 @@ use yii\web\Response;
  * @property-read Importer $importer
  * @property-read Usage $usage
  * @property-read TemplateChecker $templateChecker
- * @property-read EntryFieldsRenderer $entryFieldsRenderer
  *
  * @author WMD
  * @since 1.0.0
@@ -117,7 +112,6 @@ class Plugin extends BasePlugin
                 'usage' => Usage::class,
                 'health' => Health::class,
                 'templateChecker' => TemplateChecker::class,
-                'entryFieldsRenderer' => EntryFieldsRenderer::class,
                 'tidy' => Tidy::class,
             ],
         ];
@@ -130,18 +124,14 @@ class Plugin extends BasePlugin
     {
         parent::init();
 
-        FormatPicker::useCustom($this->getSettings()->entryFieldCustomFormats);
-
         Event::on(Fields::class, Fields::EVENT_REGISTER_FIELD_TYPES, static function(RegisterComponentTypesEvent $event) {
             $event->types[] = Design::class;
-            $event->types[] = EntryFields::class;
         });
 
         Event::on(CraftVariable::class, CraftVariable::EVENT_INIT, static function(Event $event) {
             /** @var CraftVariable $variable */
             $variable = $event->sender;
             $variable->set('designField', DesignFieldVariable::class);
-            $variable->set('entryFields', EntryFieldsVariable::class);
         });
     }
 
@@ -241,20 +231,6 @@ class Plugin extends BasePlugin
     {
         /** @var TemplateChecker */
         return $this->get('templateChecker');
-    }
-
-    /**
-     * Returns the Entry Fields renderer.
-     *
-     * @return EntryFieldsRenderer
-     *
-     * @author WMD
-     * @since 1.1.0
-     */
-    public function getEntryFieldsRenderer(): EntryFieldsRenderer
-    {
-        /** @var EntryFieldsRenderer */
-        return $this->get('entryFieldsRenderer');
     }
 
     // Protected Methods

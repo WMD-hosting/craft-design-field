@@ -1,5 +1,10 @@
 # Release Notes for Design Field
 
+## 1.0.3 - 2026-10-08
+
+### Removed
+- The undocumented Entry Fields field type. It needed site templates the plugin never shipped, so it rendered nothing on other installs. An existing Entry Fields field becomes a missing field; its values stay in the database.
+
 ## 1.0.2 - 2026-10-08
 
 ### Added
