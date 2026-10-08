@@ -1,0 +1,36 @@
+# Design Field - llms.txt
+
+Flat reference. Full prose is in README.md. Field type: wmd\designfield\fields\Design. Twig variable: craft.designField.
+
+## Stored value
+JSON object, group handle => option key: {"variant":"cards","tone":"surface","columns":"4"}. Keys only, never CSS.
+GraphQL: JSON string of the same shape, read and write.
+Invalid keys are rejected on save (validation error "<key> is not an option of <group>").
+
+## Twig
+craft.designField.of(block: Element|array|DesignValue, profile: ?string = null): DesignValue - Design field value, or old option fields / mock map read leniently
+craft.designField.value(keys: array, profile: ?string = null): DesignValue - strict value from a plain map
+craft.designField.groups(): Group[] - every configured group
+DesignValue.<group> / .get(group): Token - unknown groups give an empty Token
+DesignValue.has(group): bool - whether the active profile includes the group
+DesignValue.classes(...groups): string - joined classes; no args = every profile group
+DesignValue.keys(): array<string,string>
+Token.key, Token.label, Token.isDefault, Token.isAuto(): bool, Token.keyOr(fallback): string, Token.classOr(fallback): string, Token.get(part): string, (string)Token = all parts joined
+
+## Config (config/design-field.php or Settings > Plugins > Design Field)
+fieldMap: old field handle => group handle
+groups.<handle>: label, instructions, tokens | options, default, auto, aliases, input (buttons|select|swatches|tiles|position|slider|toggle; toggle needs exactly two options, off first), iconsOnly, columns, showIf {group: [keys]} | variants [keys], optionMeta {key: {label, icon, swatch, image, description, sample}}
+presets.<profile|*>.<label>: {group: key, ...} - one-click sets of choices above a block's options; profile presets first, then `*`; only groups the block has are applied; nothing extra is stored; CP table presetRows (profile, name, choices `group=key, group=key`; older one-choice rows still read) unless the config file sets presets
+settings page: usage report on request (?usage=1, helpers/UsageReport::summarize shared with the console), configuration check (services/Health::check) and a live preview of any profile's panel (?preview=<profile>; inputs carry form="df-preview" so they are never saved)
+option: key => "classes" | {label, icon, swatch, image, description, sample (CSS font-size for an "Aa" button), <part>: "classes"}
+profiles.<name>: list of group handles; 'group' => 'key' sets the default; 'group' => [overrides] adjusts a shared group; 'group' => [options|tokens ...] defines a local group
+groupOverrides.<group>: settings merged into a group everywhere (survives regeneration)
+profileOverrides.<profile>.<group>: settings for one profile only
+profile matching: field setting > "<matrixField>:<type>" > "<type>" > "*" > every group
+
+## Console
+craft design-field/import [--exclude=a,b] [--rename=field:group] [--types=a,b] [--templates=pattern] [--images=pattern] [--enrich] [--force] [--write]
+craft design-field/adopt (--types=a,b | --all) [--field=design] [--apply]
+craft design-field/migrate --type=<handle> [--to-type=<handle>] [--map=field:group,...] [--entries=1,2] [--drafts] [--overwrite] [--detail] [--apply]
+craft design-field/usage [--types=a,b] [--all] [--min=N] [--sample=N] [--json] - which choices editors use: never-changed, one-value, used; unused options
+import/adopt/migrate are dry runs unless --write / --apply.

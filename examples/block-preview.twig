@@ -1,0 +1,43 @@
+{#
+  Design Field: an example page for `blockPreviewUrl`, the live block next to the Design
+  panel on the plugin's settings page (Preview tab), and the page "Make tile pictures"
+  draws from.
+
+  1. Copy this file to templates/_design-field/block-preview.twig and adjust the two marked
+     lines: the layout it extends and how your site renders one block.
+  2. Add a route in config/routes.php:
+       '_design-field/block' => ['template' => '_design-field/block-preview'],
+  3. In config/design-field.php:
+       'blockPreviewUrl' => '/_design-field/block?type={type}&design={design}',
+
+  The settings page passes `type` (the entry type handle) and `design` (the panel's choices as
+  JSON). The page shows the newest live block of that type with those choices, set for this
+  render only: nothing is saved. CP users only.
+#}
+{% requirePermission 'accessCp' %}
+
+{# ↓ Your site's layout, ideally one without header and footer, so only the block shows. #}
+{% extends '_layout' %}
+
+{% block content %}
+  {% set type = craft.app.request.getQueryParam('type') %}
+  {% set design = craft.app.request.getQueryParam('design') %}
+  {% set block = type ? craft.entries.type(type).status('live').orderBy('dateUpdated DESC').one() : null %}
+
+  {% if block %}
+    {# The panel's choices, for this render only (setFieldValue changes this request's copy). #}
+    {% if design and block.fieldLayout and block.fieldLayout.getFieldByHandle('design') %}
+      {% do block.setFieldValue('design', design) %}
+    {% endif %}
+
+    {# ↓ How your site renders one block, e.g. an include per block type and layout. #}
+    {% include '_blocks/' ~ block.type.handle with { block: block } only %}
+  {% else %}
+    {#
+      No block of this type on any page yet. Optional: sample content per type, e.g.
+      templates/_design-samples/blockCta.twig rendering the block from a plain map.
+    #}
+    {% include '_design-samples/' ~ type ignore missing %}
+    <p style="padding: 2rem; font-family: system-ui, sans-serif; color: #6b7280">No {{ type }} on any page yet. Add one to preview it here.</p>
+  {% endif %}
+{% endblock %}

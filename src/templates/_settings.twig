@@ -1,0 +1,557 @@
+{% import '_includes/forms.twig' as forms %}
+
+{% set overridden = settings.isOverridden() %}
+
+{% if error %}
+  <p class="error">{{ error }}</p>
+{% endif %}
+
+{# Tabs come from the page (templates/_settings-page.twig, Plugin::getSettingsResponse()):
+   Craft draws them in the pane header and shows one pane at a time. Panes are only hidden,
+   never removed, so one Save still posts every table. #}
+{# Always posted: Craft saves only the keys a form sends, so leaving it out (no preview
+   because the configuration does not build) would drop every saved style. #}
+<input type="hidden" name="inputs" value="{{ settings.inputs|json_encode }}" data-df-inputs>
+
+{# Wide screens: tables and text keep a readable width; the Preview tab uses all of it for the block. #}
+{% css %}
+  .df-tab:not([data-df-tab="preview"]) { max-width: 90rem; }
+  .df-tab .field > .instructions, .df-tab .field > .heading + .instructions, .df-starter p { max-width: 80ch; }
+{% endcss %}
+
+{# First run: no options anywhere yet. Fills the settings tables with the starter options. #}
+{% if not settings.isOverridden() and settings.groupRows is empty and settings.profileRows is empty %}
+  <div class="pane df-starter" data-df-starter>
+    <h2>{{ 'Start here'|t('design-field') }}</h2>
+    <p>{{ 'Design Field has no options yet. Pick the CSS your site uses and it adds five to every block: Section tone, Section spacing, Container, Alignment and Entrance, with your framework\'s classes. Each starts at “Block default”, so no block changes until an editor picks something. You can edit them all in the Configuration tab.'|t('design-field') }}</p>
+    <div class="flex">
+      {% for framework, label in starterFrameworks %}
+        <button type="button" class="btn{{ loop.first ? ' submit' }}" data-df-starter-framework="{{ framework }}">{{ label }}</button>
+      {% endfor %}
+    </div>
+    <p class="light smalltext">{{ 'Then add a Design field to your blocks, and read the options in your templates: {code}. Entrances, and the plain-CSS classes, come from the plugin\'s stylesheet: add {css} to your layout.'|t('design-field', { code: '<code>{{ craft.designField.of(block).classes(\'tone\', \'spacing\') }}</code>', css: '<code>{% do craft.designField.starterCss() %}</code>' })|raw }}</p>
+  </div>
+  {% js %}
+    document.querySelectorAll('[data-df-starter-framework]').forEach(function(button) {
+      button.addEventListener('click', function() {
+        button.classList.add('loading');
+        Craft.sendActionRequest('POST', 'design-field/starter/apply', {data: {framework: button.getAttribute('data-df-starter-framework')}})
+          .then(function(response) { Craft.cp.displaySuccess(response.data.message); location.reload(); })
+          .catch(function(e) { button.classList.remove('loading'); Craft.cp.displayError((e.response && e.response.data && e.response.data.message) || String(e)); });
+      });
+    });
+  {% endjs %}
+{% endif %}
+
+<div id="df-tab-looks" class="df-tab{{ selectedTab != 'df-tab-looks' ? ' hidden' }}" data-df-tab="looks">
+{% if previewPayload %}
+  {# Data for the page script (SettingsPreview::JS), which serves the Looks and Preview tabs. #}
+  <div data-df-settings="{{ { profile: previewProfile, inputs: settings.inputs, styles: previewPayload.styles, options: previewPayload.options, frame: previewPayload.frame, tiles: previewPayload.tiles, siteStyles: siteStyles }|json_encode }}" hidden></div>
+    {% if siteStyles.use is not empty %}
+      {% set quickSwitch %}
+        <table class="data fullwidth df-quick" data-df-styles>
+          <thead><tr><th scope="col" style="width: 30%">{{ 'Style'|t('design-field') }}</th><th scope="col" style="width: 20%">{{ 'Used on'|t('design-field') }}</th><th scope="col">{{ 'Becomes'|t('design-field') }}</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      {% endset %}
+      {{ forms.field({
+        label: 'Quick switch'|t('design-field'),
+        instructions: 'Show every option of one style another way, on every block. For example **Icons → Labels only** for editors who prefer words. An option’s own look below still wins.'|t('design-field'),
+      }, quickSwitch) }}
+    {% endif %}
+
+    {% set optionLooks %}
+      <input type="search" class="text fullwidth df-options-filter" form="df-preview" placeholder="{{ 'Find an option'|t('design-field') }}" aria-label="{{ 'Find an option'|t('design-field') }}" data-df-options-filter>
+      <div class="df-options-scroll">
+        <table class="data fullwidth" data-df-options>
+          <thead><tr><th scope="col" style="width: 24%">{{ 'Option'|t('design-field') }}</th><th scope="col">{{ 'Preview'|t('design-field') }}</th><th scope="col" style="width: 16rem">{{ 'Looks like'|t('design-field') }}</th><th scope="col" style="width: 11rem">{{ 'Section'|t('design-field') }}</th><th scope="col" style="width: 7rem">{{ 'Used on'|t('design-field') }}</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    {% endset %}
+    {{ forms.field({
+      label: 'Option looks'|t('design-field'),
+      instructions: 'How each option looks to editors on every block: icons, labelled buttons, a dropdown, a slider. **✎ Labels & icons** renames an option’s choices and picks their icons. Save keeps it.'|t('design-field'),
+    }, optionLooks) }}
+{% else %}
+  <p class="light">{{ 'The preview needs a configuration that builds: see the Configuration tab.'|t('design-field') }}</p>
+{% endif %}
+</div>
+
+<div id="df-tab-preview" class="df-tab{{ selectedTab != 'df-tab-preview' ? ' hidden' }}" data-df-tab="preview">
+{% if previewPayload %}
+    {% set previewBar %}
+      <div class="flex">
+        <div class="select">
+          <select id="df-preview-profile" form="df-preview" data-df-profile aria-label="{{ 'Block'|t('design-field') }}">
+            {% for option in previewOptions %}
+              <option value="{{ option.value }}" {{ option.value == previewProfile ? 'selected' }}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="button" class="btn df-customize" data-icon="edit" aria-pressed="false" aria-describedby="df-customize-hint" data-df-customize>{{ 'Customize this block'|t('design-field') }}</button>
+        <span id="df-customize-hint" class="light smalltext" data-df-customize-hint>{{ 'Different looks for this block only'|t('design-field') }}</span>
+        <button type="button" class="btn" data-icon="image" data-df-tiles data-df-tile-skip="{{ settings.tileSkip }}" hidden>{{ 'Make tile pictures'|t('design-field') }}</button>
+        <span class="light smalltext" data-df-tiles-status role="status"></span>
+      </div>
+    {% endset %}
+    {{ forms.field({
+      label: 'What editors see'|t('design-field'),
+      instructions: 'The real Design panel of one block, with the looks from the Looks tab, next to the block itself. Try layouts and presets: nothing of that is saved.'|t('design-field'),
+    }, previewBar) }}
+    <div class="df-sp-body">
+      <div class="pane df-sp-panel" data-df-panel>{{ previewPayload.html|raw }}</div>
+      <div class="df-sp-frame" data-df-frame-wrap hidden>
+        <div class="df-sp-bar">
+          <div class="btngroup" role="group" aria-label="{{ 'Preview width'|t('design-field') }}">
+            <button type="button" class="btn small active" aria-pressed="true" data-df-width="1280" data-df-screen="900" title="1280 × 900">{{ 'Desktop'|t('design-field') }}</button>
+            <button type="button" class="btn small" aria-pressed="false" data-df-width="768" data-df-screen="1024" title="768 × 1024">{{ 'Tablet'|t('design-field') }}</button>
+            <button type="button" class="btn small" aria-pressed="false" data-df-width="375" data-df-screen="812" title="375 × 812">{{ 'Mobile'|t('design-field') }}</button>
+          </div>
+          <span class="light smalltext" data-df-scale></span>
+        </div>
+        <div class="df-sp-viewport"><iframe title="{{ 'Block preview'|t('design-field') }}" data-df-frame></iframe></div>
+      </div>
+    </div>
+
+  <details style="margin-top: var(--m)">
+    <summary>{{ 'Group handles and keys of this block (for preset choices)'|t('design-field') }}</summary>
+    <div data-df-keys>{{ previewPayload.keys|raw }}</div>
+  </details>
+{% else %}
+  <p class="light">{{ 'The preview needs a configuration that builds: see the Configuration tab.'|t('design-field') }}</p>
+{% endif %}
+</div>
+
+<div id="df-tab-presets" class="df-tab{{ selectedTab != 'df-tab-presets' ? ' hidden' }}" data-df-tab="presets">
+{% if settings.isPresetsOverridden() %}
+  <div class="readable" style="margin-block: var(--l)">
+    <p class="warning has-icon">
+      <span class="icon" aria-hidden="true"></span>
+      <span>{{ 'Presets are set in {file}. Remove `presets` from that file to edit them here instead.'|t('design-field', { file: '`config/design-field.php`' })|md(inlineOnly=true) }}</span>
+    </p>
+  </div>
+{% endif %}
+
+{{ forms.editableTableField({
+  label: 'Presets'|t('design-field'),
+  instructions: 'One-click sets of choices shown above a block’s options, one row per preset. **Choices** is a comma list of `group=key`, for example `tone=inverted, spacing=loose`; the Looks tab lists each block’s groups and keys under the preview. `*` shows the preset on every block, after the block’s own presets, and a preset sets only the groups a block has.'|t('design-field'),
+  id: 'presetRows',
+  name: 'presetRows',
+  static: settings.isPresetsOverridden(),
+  allowAdd: true,
+  allowDelete: true,
+  allowReorder: true,
+  addRowLabel: 'Add a preset'|t('design-field'),
+  cols: {
+    profile: { heading: 'Profile'|t('design-field'), type: 'select', options: presetProfileOptions, width: '24%' },
+    name: { heading: 'Preset'|t('design-field'), type: 'singleline', width: '18%' },
+    choices: { heading: 'Choices'|t('design-field'), type: 'singleline', code: true, info: 'group=key, comma separated. Saving rejects groups and keys that do not exist.'|t('design-field') },
+  },
+  rows: settings.presetTableRows(),
+  errors: settings.getErrors('presetRows'),
+}) }}
+</div>
+
+<div id="df-tab-usage" class="df-tab{{ selectedTab != 'df-tab-usage' ? ' hidden' }}" data-df-tab="usage">
+{# Tidy up: option fields still outside Design Field, scanned only when asked (?tidy=1). #}
+{% set tidyBody %}
+{% set tidyUrl = cpUrl(craft.app.request.pathInfo, craft.app.request.queryParams|merge({ tidy: 1 })) %}
+{% if tidyRows is null %}
+  <a class="btn" href="{{ tidyUrl }}">{{ 'Scan option fields'|t('design-field') }}</a>
+{% elseif tidyRows is empty %}
+  <p class="light">{{ 'No option fields left: every block uses the Design field.'|t('design-field') }}</p>
+{% else %}
+  <div data-df-tidy>
+  {% for row in tidyRows %}
+    <section class="df-tidy-type">
+      <h3>{{ row.typeName }} <code class="light">{{ row.type }}</code></h3>
+      <table class="data fullwidth">
+        <thead><tr><th scope="col">{{ 'Field'|t('design-field') }}</th><th scope="col">{{ 'Type'|t('design-field') }}</th><th scope="col">{{ 'Would become'|t('design-field') }}</th></tr></thead>
+        <tbody>
+        {% for field in row.fields %}
+          <tr>
+            <th scope="row">
+              {{ field.name }} <code class="light">{{ field.field }}</code>
+              {% if not field.read %}<div class="light smalltext">{{ 'Not read by any template yet: unfinished, or left over.'|t('design-field') }}</div>{% endif %}
+            </th>
+            <td>{{ field.kind }}</td>
+            <td>
+              {% if field.status == 'skipped' or field.status == 'clash' %}
+                <span class="warning">{{ field.note }}</span>
+              {% elseif field.status == 'moves' %}
+                <code>{{ field.group }}</code> <span class="light">{{ 'moves into this option'|t('design-field') }}</span>
+              {% else %}
+                <code>{{ field.group }}</code> <span class="light">{{ 'new option, not in the configuration yet'|t('design-field') }}</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <div class="df-tidy-actions">
+        <button type="button" class="btn small" data-df-tidy-config="{{ row.type }}">{{ 'Preview the config'|t('design-field') }}</button>
+        {% set addTo = settings.isOverridden() ? 'merge it into config/design-field.php'|t('design-field') : 'add those options in the Configuration tab\'s tables'|t('design-field') %}
+        {% if row.movable %}
+          <button type="button" class="btn small" data-icon="arrow-right" data-df-tidy-move="{{ row.type }}">{{ 'Move this block'|t('design-field') }}</button>
+        {% elseif row.reason == 'clash' %}
+          <span class="warning smalltext">{{ 'Not movable yet: fix what the warning above says first (an option that lacks some stored values, or one meant for something else).'|t('design-field') }}</span>
+        {% elseif row.reason == 'no-profile' %}
+          <span class="light smalltext">{{ 'This block has no profile yet: preview the config, then {addTo}.'|t('design-field', { addTo: addTo }) }}</span>
+        {% else %}
+          <span class="light smalltext">{{ 'Nothing to move yet: these would be new options. Preview the config, then {addTo}.'|t('design-field', { addTo: addTo }) }}</span>
+        {% endif %}
+      </div>
+    </section>
+  {% endfor %}
+  </div>
+{% endif %}
+{% endset %}
+{{ forms.field({
+  label: 'Option fields on your blocks'|t('design-field'),
+  instructions: 'Dropdowns, Button Groups, Lightswitches, Button Box sets and Color palettes on your blocks, and what each would become in the Design field. Some are behaviour, not design (a source, a sort order): leave those as they are. Move copies the values and checks them before the old fields leave the layout; the old values stay in the database.'|t('design-field'),
+}, tidyBody) }}
+
+{% if tidyChanges is not empty %}
+{% set changesBody %}
+<table class="data fullwidth">
+  <tbody>
+  {% for change in tidyChanges %}
+    <tr>
+      <th scope="row">{{ change.profileName }} · {{ change.groupLabel }}</th>
+      <td>{{ change.kind == 'default' ? 'Default: “{value}”'|t('design-field', { value: change.keyLabel }) : 'Hidden from the picker: “{value}”'|t('design-field', { value: change.keyLabel }) }}</td>
+      <td class="thin"><button type="button" class="btn small" data-df-undo data-kind="{{ change.kind }}" data-profile="{{ change.profile }}" data-group="{{ change.group }}" data-key="{{ change.key }}">{{ 'Undo'|t('design-field') }}</button></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endset %}
+{{ forms.field({
+  label: 'Changed on this page'|t('design-field'),
+  instructions: 'Defaults and hidden choices set here win over config/design-field.php. Undo takes effect after Save.'|t('design-field'),
+}, changesBody) }}
+{% endif %}
+
+{% set briefBody %}
+<div class="flex">
+  <div class="btngroup" role="group" aria-label="{{ 'Front end'|t('design-field') }}">
+    <button type="button" class="btn active" aria-pressed="true" data-df-brief-stack="twig">{{ 'Twig'|t('design-field') }}</button>
+    <button type="button" class="btn" aria-pressed="false" data-df-brief-stack="graphql">{{ 'Headless (GraphQL)'|t('design-field') }}</button>
+  </div>
+  <button type="button" class="btn" data-icon="clipboard" data-df-brief-copy>{{ 'Copy brief'|t('design-field') }}</button>
+</div>
+{% endset %}
+{{ forms.field({
+  label: 'Brief for an agent'|t('design-field'),
+  instructions: 'Paste it into Claude or another agent. It lists your option fields, the options they map to, what the template check found, and the commands that move the data.'|t('design-field'),
+}, briefBody) }}
+
+{% set usageBody %}
+{% set usageUrl = cpUrl(craft.app.request.pathInfo, craft.app.request.queryParams|merge({ usage: 1 })) %}
+{% if usage is null %}
+  <a class="btn" href="{{ usageUrl }}">{{ 'Run usage report'|t('design-field') }}</a>
+{% else %}
+  <div id="df-usage">
+    {# Period: Justin Holt's yearly review — what do editors still touch? Counts only blocks saved in the window. #}
+    <div class="flex" style="margin-bottom: var(--m)">
+      <span class="light">{{ 'Count blocks saved in'|t('design-field') }}</span>
+      <div class="btngroup" role="group" aria-label="{{ 'Period'|t('design-field') }}">
+        {% for months, label in { 0: 'All time'|t('design-field'), 12: 'Last 12 months'|t('design-field'), 6: 'Last 6 months'|t('design-field'), 3: 'Last 3 months'|t('design-field') } %}
+          <a class="btn{{ usage.months == months ? ' active' }}" aria-current="{{ usage.months == months ? 'true' : 'false' }}" href="{{ cpUrl(craft.app.request.pathInfo, craft.app.request.queryParams|merge({ usage: 1, months: months })) }}">{{ label }}</a>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="df-usage-stats">
+      <div class="df-usage-stat"><strong>{{ usage.types|length }}</strong>{{ usage.months ? 'blocks with findings, last {n} months'|t('design-field', { n: usage.months }) : 'blocks with findings'|t('design-field') }}</div>
+      <div class="df-usage-stat"><strong>{{ usage.neverChanged }}</strong>{{ 'options never changed'|t('design-field') }}</div>
+      <div class="df-usage-stat"><strong>{{ usage.oneValue }}</strong>{{ 'always the same choice'|t('design-field') }}</div>
+      <div class="df-usage-rescan">
+        <a class="btn" data-icon="refresh" href="{{ usageUrl }}">{{ 'Rescan'|t('design-field') }}</a>
+        <div class="light smalltext">{{ 'Counted at {time}'|t('design-field', { time: now|time('short') }) }}</div>
+      </div>
+    </div>
+
+    {% if usage.nowhere is not empty %}
+      <p class="warning has-icon"><span class="icon" aria-hidden="true"></span><span>{{ 'Never changed in any block:'|t('design-field') }} {{ usage.nowhere|map(g => g.label ~ ' (' ~ g.types ~ ')')|join(', ') }}</span></p>
+    {% endif %}
+
+    <div class="btngroup" role="group" aria-label="{{ 'Show findings'|t('design-field') }}" data-df-usage-filter style="margin-bottom: var(--m)">
+      <button type="button" class="btn active" aria-pressed="true" data-verdict="">{{ 'All'|t('design-field') }}</button>
+      <button type="button" class="btn" aria-pressed="false" data-verdict="never-changed">{{ 'Never changed'|t('design-field') }}</button>
+      <button type="button" class="btn" aria-pressed="false" data-verdict="one-value">{{ 'Always the same'|t('design-field') }}</button>
+    </div>
+
+    {% for card in usageCards %}
+      <section class="df-usage-card" data-df-usage-card>
+        <header>
+          <h3>{% if card.url %}<a href="{{ card.url }}" title="{{ 'Edit the block type'|t('design-field') }}">{{ card.name }}</a>{% else %}{{ card.name }}{% endif %}</h3>
+          <button type="button" class="btn small df-customize df-usage-preview" data-icon="view" data-df-usage-preview="{{ card.type }}">{{ 'Preview this block'|t('design-field') }}</button>
+          <span class="light smalltext">{{ card.entries }} {{ card.entries == 1 ? 'entry'|t('design-field') : 'entries'|t('design-field') }}{{ card.few ? ' · ' ~ 'few, treat as a hint'|t('design-field') }}</span>
+        </header>
+        {% for finding in card.findings %}
+          <div class="df-usage-finding" data-verdict="{{ finding.verdict }}">
+            <div class="df-usage-option">
+              {{ finding.label }} <code class="light">{{ finding.handle }}</code>
+              <button type="button" class="btn small df-usage-show" data-df-usage-preview="{{ card.type }}" data-df-usage-option="{{ finding.handle }}">{{ 'Show in preview'|t('design-field') }}</button>
+            </div>
+            {{ finding.chips|raw }}
+            <div class="df-usage-sentence">
+              {{ finding.sentence }}
+              {% if finding.value is not null %}
+                <button type="button" class="btn small" data-df-make-default data-profile="{{ finding.profile }}" data-group="{{ finding.handle }}" data-key="{{ finding.value }}">{{ 'Make “{value}” the default'|t('design-field', { value: finding.valueLabel }) }}</button>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </section>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endset %}
+{{ forms.field({
+  label: 'Usage'|t('design-field'),
+  instructions: 'Which choices editors actually make, counted over every entry (drafts and revisions left out). Options nobody changes can be dropped from a block or made fixed in its template; a choice everyone picks can become the default.'|t('design-field'),
+}, usageBody) }}
+</div>
+
+{% js %}
+(function() {
+  // Tidy up: the agent brief, a block type's generated config, and moving a block type.
+  function post(action, data) {
+    return Craft.sendActionRequest('POST', 'design-field/tidy/' + action, {data: data}).then(function(r) { return r.data; });
+  }
+  function failed(e) {
+    Craft.cp.displayError((e && e.response && e.response.data && e.response.data.message) || String(e));
+  }
+  var stack = 'twig';
+  document.querySelectorAll('[data-df-brief-stack]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      stack = btn.getAttribute('data-df-brief-stack');
+      document.querySelectorAll('[data-df-brief-stack]').forEach(function(o) { o.classList.toggle('active', o === btn); o.setAttribute('aria-pressed', o === btn ? 'true' : 'false'); });
+    });
+  });
+  document.querySelectorAll('[data-df-brief-copy]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      post('brief', {stack: stack}).then(function(data) {
+        // The clipboard API needs HTTPS; elsewhere the brief opens selected, ready to copy.
+        var show = function() {
+          var box = document.createElement('textarea');
+          box.className = 'text fullwidth df-tidy-brief';
+          box.rows = 18;
+          box.readOnly = true;
+          box.value = data.text;
+          if (btn._dfHud) { btn._dfHud.updateBody(box); btn._dfHud.show(); } else { btn._dfHud = new Garnish.HUD(btn, box, {orientations: ['bottom', 'top']}); }
+          box.focus();
+          box.select();
+          Craft.cp.displayNotice(Craft.t('design-field', 'Brief selected: press Ctrl/Cmd+C to copy.'));
+        };
+        if (!navigator.clipboard || !window.isSecureContext) { show(); return; }
+        return navigator.clipboard.writeText(data.text)
+          .then(function() { Craft.cp.displayNotice(Craft.t('design-field', 'Brief copied.')); })
+          .catch(show);
+      }).catch(failed);
+    });
+  });
+  document.querySelectorAll('[data-df-tidy-config]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      post('config', {type: btn.getAttribute('data-df-tidy-config')}).then(function(data) {
+        var pre = document.createElement('pre');
+        pre.className = 'df-tidy-php';
+        pre.textContent = data.php;
+        if (btn._dfHud) { btn._dfHud.updateBody(pre); btn._dfHud.show(); return; }
+        btn._dfHud = new Garnish.HUD(btn, pre, {orientations: ['bottom', 'top']});
+      }).catch(failed);
+    });
+  });
+  document.querySelectorAll('[data-df-tidy-move]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var type = btn.getAttribute('data-df-tidy-move');
+      post('move', {type: type, apply: 0}).then(function(dry) {
+        if (!dry.old.length) { Craft.cp.displayNotice(Craft.t('design-field', 'Nothing to move.')); return; }
+        var lost = Object.keys(dry.unknown || {}).map(function(group) { return group + ': ' + Object.keys(dry.unknown[group]).join(', '); });
+        if (lost.length) {
+          alert(Craft.t('design-field', 'Not moved: some blocks hold values these options do not have ({values}). Add them to the options first.', {values: lost.join('; ')}));
+          return;
+        }
+        if (!confirm(Craft.t('design-field', 'Move {fields} into the Design field? {changed} of {entries} blocks have a value to copy. Values are saved and checked before the old fields leave the layout; the old values stay in the database.', {fields: dry.old.join(', '), changed: dry.changed, entries: dry.entries}))) { return; }
+        return post('move', {type: type, apply: 1}).then(function() {
+          btn.disabled = true;
+          Craft.cp.displayNotice(Craft.t('design-field', 'Queued: {type}', {type: type}));
+          Craft.cp.runQueue();
+        });
+      }).catch(failed);
+    });
+  });
+
+  // Usage: filter findings by verdict; "Preview ▸" opens the block on the Preview tab.
+  var filter = document.querySelector('[data-df-usage-filter]');
+  if (filter) {
+    filter.addEventListener('click', function(event) {
+      var button = event.target.closest('[data-verdict]');
+      if (!button) { return; }
+      var verdict = button.getAttribute('data-verdict');
+      filter.querySelectorAll('[data-verdict]').forEach(function(b) { b.classList.toggle('active', b === button); b.setAttribute('aria-pressed', b === button ? 'true' : 'false'); });
+      document.querySelectorAll('[data-df-usage-card]').forEach(function(card) {
+        var shown = 0;
+        card.querySelectorAll('.df-usage-finding').forEach(function(row) {
+          row.hidden = verdict !== '' && row.getAttribute('data-verdict') !== verdict;
+          shown += row.hidden ? 0 : 1;
+        });
+        card.hidden = shown === 0;
+      });
+    });
+  }
+  // Outline one option in the Preview tab's panel, once that block's panel is shown.
+  var pendingOption = null;
+  function highlight(handle) {
+    var field = document.querySelector('[data-df-panel] [data-df-group="' + handle + '"]');
+    if (!field) { return; }
+    field.scrollIntoView({block: 'center', behavior: 'smooth'});
+    field.classList.add('df-highlight');
+    setTimeout(function() { field.classList.remove('df-highlight'); }, 2500);
+  }
+  document.addEventListener('df:panel', function() {
+    if (pendingOption) { highlight(pendingOption); pendingOption = null; }
+  });
+  document.querySelectorAll('[data-df-usage-preview]').forEach(function(button) {
+    var type = button.getAttribute('data-df-usage-preview');
+    var handle = button.getAttribute('data-df-usage-option');
+    var select = document.querySelector('[data-df-profile]');
+    var option = select ? [].slice.call(select.options).filter(function(o) { return o.value === type || o.value.slice(-type.length - 1) === ':' + type; })[0] : null;
+    if (!option) { button.disabled = true; button.title = {{ 'This block has no profile of its own.'|t('design-field')|json_encode|raw }}; return; }
+    button.addEventListener('click', function() {
+      var tab = document.querySelector('#tabs [role="tab"][data-id$="df-tab-preview"]');
+      if (tab) { tab.click(); }
+      if (select.value !== option.value) {
+        pendingOption = handle;
+        select.value = option.value;
+        select.dispatchEvent(new Event('change', {bubbles: true}));
+      } else if (handle) {
+        highlight(handle);
+      }
+      if (!handle) { window.scrollTo({top: 0}); }
+    });
+  });
+})();
+{% endjs %}
+
+<div id="df-tab-config" class="df-tab{{ selectedTab != 'df-tab-config' ? ' hidden' }}" data-df-tab="configuration">
+{% if overridden %}
+  <div class="readable" style="margin-bottom: var(--l)">
+    <p class="warning has-icon">
+      <span class="icon" aria-hidden="true"></span>
+      <span>{{ 'Groups and profiles are set in {file}. Remove `groups` and `profiles` from that file to edit them here instead.'|t('design-field', { file: '`config/design-field.php`' })|md(inlineOnly=true) }}</span>
+    </p>
+  </div>
+{% endif %}
+
+{# Template check: options and templates against each other (helpers/TemplateCheck.php). #}
+<div class="field readable" style="margin-bottom: var(--l)">
+  <div class="heading"><label>{{ 'Template check'|t('design-field') }}</label></div>
+  <div class="instructions"><p>{{ 'Options against the templates that render them: options no template reads (editors change them and nothing happens), template reads of options a block does not offer, and layouts without a template file. Also on the command line for CI: `craft design-field/check` (exit code 1 when there is something to fix).'|t('design-field')|md(inlineOnly=true) }}</p></div>
+  {% if templateFindings is empty %}
+    <p class="success has-icon"><span class="icon" aria-hidden="true"></span><span>{{ 'Templates and options match.'|t('design-field') }}</span></p>
+  {% else %}
+    <ul class="bullets">
+      {% for finding in templateFindings %}
+        <li class="{{ finding.level == 'error' ? 'error' : (finding.level == 'warning' ? 'warning' : 'light') }}">
+          {{ finding.message }}
+          {% if finding.url %}<a href="{{ finding.url }}">{{ 'Block type'|t('design-field') }}</a>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</div>
+
+{# Health: configuration checked against this install (services/Health.php). #}
+<div class="field readable">
+  {% if health is empty and not error %}
+    <p class="success has-icon"><span class="icon" aria-hidden="true"></span><span>{{ 'Configuration check: no problems found.'|t('design-field') }}</span></p>
+  {% else %}
+    <div class="heading"><label>{{ 'Configuration check'|t('design-field') }}</label></div>
+    <ul class="bullets">
+      {% for finding in health %}
+        <li class="{{ finding.level == 'error' ? 'error' : (finding.level == 'warning' ? 'warning' : '') }}">
+          {{ finding.message }}
+          {% if finding.url %}<a href="{{ finding.url }}">{{ 'Fix'|t('design-field') }}</a>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</div>
+
+{% if not overridden %}
+{{ forms.editableTableField({
+  label: 'Groups'|t('design-field'),
+  instructions: 'Each group is one choice in the Design panel: tone, spacing, columns. Pick a **Profile** to make a group local to one block, such as its own layout list. Pick a **Token file** from `config/designtokens/` (Tailwind scans it), or leave it on None and list the options in the table below.'|t('design-field'),
+  id: 'groupRows',
+  name: 'groupRows',
+  static: overridden,
+  allowAdd: true,
+  allowDelete: true,
+  allowReorder: true,
+  addRowLabel: 'Add a group'|t('design-field'),
+  cols: {
+    handle: { heading: 'Handle'|t('design-field'), type: 'singleline', code: true, width: '12%' },
+    label: { heading: 'Label'|t('design-field'), type: 'singleline', width: '14%' },
+    instructions: { heading: 'Instructions'|t('design-field'), type: 'singleline', width: '20%' },
+    profile: { heading: 'Profile'|t('design-field'), type: 'select', options: groupProfileOptions, info: 'Only for this profile. Shared means any profile can list it.'|t('design-field'), width: '14%' },
+    tokens: { heading: 'Token file'|t('design-field'), type: 'select', options: tokenFileOptions, width: '10%' },
+    default: { heading: 'Default'|t('design-field'), type: 'singleline', code: true, width: '9%' },
+    auto: { heading: 'Auto option'|t('design-field'), type: 'singleline', info: 'A label such as "Block default" adds an `auto` option that lets the template decide.'|t('design-field'), width: '11%' },
+    input: { heading: 'Input'|t('design-field'), type: 'select', width: '8%', options: [
+      { label: 'Automatic'|t('design-field'), value: '' },
+      { label: 'Buttons'|t('design-field'), value: 'buttons' },
+      { label: 'Dropdown'|t('design-field'), value: 'select' },
+      { label: 'Swatches'|t('design-field'), value: 'swatches' },
+      { label: 'Picture tiles'|t('design-field'), value: 'tiles' },
+      { label: 'Position grid'|t('design-field'), value: 'position' },
+      { label: 'Slider'|t('design-field'), value: 'slider' },
+    ] },
+    iconsOnly: { heading: 'Icons only'|t('design-field'), type: 'lightswitch', width: '6%' },
+    variants: { heading: 'Show for layouts'|t('design-field'), type: 'singleline', code: true, info: 'Comma-separated layout keys. Empty shows the group for every layout.'|t('design-field'), width: '12%' },
+  },
+  rows: settings.groupRows,
+  errors: settings.getErrors('groupRows'),
+}) }}
+
+{{ forms.editableTableField({
+  label: 'Options'|t('design-field'),
+  instructions: 'Options of groups without a token file. **Group** lists the groups above that have no token file (`profile/handle` for a local group). **Value** is what the template prints, usually classes; leave it empty when the template maps the key itself.'|t('design-field'),
+  id: 'optionRows',
+  name: 'optionRows',
+  static: overridden,
+  allowAdd: true,
+  allowDelete: true,
+  allowReorder: true,
+  addRowLabel: 'Add an option'|t('design-field'),
+  cols: {
+    group: { heading: 'Group'|t('design-field'), type: 'select', options: groupRefOptions, info: 'Groups from the table above that have no token file. Save after adding a group to see it here.'|t('design-field'), width: '18%' },
+    key: { heading: 'Key'|t('design-field'), type: 'singleline', code: true, width: '14%' },
+    label: { heading: 'Label'|t('design-field'), type: 'singleline', width: '20%' },
+    icon: { heading: 'Icon'|t('design-field'), type: 'icon', width: '8%' },
+    swatch: { heading: 'Swatch'|t('design-field'), type: 'color', width: '8%' },
+    image: { heading: 'Image'|t('design-field'), type: 'singleline', code: true, info: 'URL of a picture for the Picture tiles input.'|t('design-field'), width: '14%' },
+    value: { heading: 'Value'|t('design-field'), type: 'singleline', code: true },
+  },
+  rows: settings.optionRows,
+}) }}
+
+{{ forms.editableTableField({
+  label: 'Profiles'|t('design-field'),
+  instructions: 'Which groups each block shows. **Profile** is an entry type, an entry type in one Matrix field only, a product type, a category group, or `*` for everything else; the most specific match wins. **Groups** is a comma list; `columns=4` sets that block’s default.'|t('design-field'),
+  id: 'profileRows',
+  name: 'profileRows',
+  static: overridden,
+  allowAdd: true,
+  allowDelete: true,
+  allowReorder: true,
+  addRowLabel: 'Add a profile'|t('design-field'),
+  cols: {
+    profile: { heading: 'Profile'|t('design-field'), type: 'select', options: profileOptions, width: '30%' },
+    groups: { heading: 'Groups'|t('design-field'), type: 'singleline', code: true },
+  },
+  rows: settings.profileRows,
+}) }}
+{% endif %}
+</div>

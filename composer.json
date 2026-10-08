@@ -1,0 +1,73 @@
+{
+    "name": "wmd/craft-design-field",
+    "description": "One field for every design option of a block: tone, spacing, layout, columns and more, picked from named choices you define once. Swatches, picture tiles, sliders and position grids; options that only show when they apply.",
+    "type": "craft-plugin",
+    "license": "MIT",
+    "keywords": [
+        "craft",
+        "craftcms",
+        "craft-plugin",
+        "field",
+        "design-system",
+        "design-tokens",
+        "tailwind",
+        "page-builder",
+        "matrix",
+        "blocks"
+    ],
+    "authors": [
+        {
+            "name": "WMD",
+            "homepage": "https://wmd.hr/"
+        }
+    ],
+    "support": {
+        "docs": "https://github.com/WMD-hosting/craft-design-field/blob/main/README.md",
+        "issues": "https://github.com/WMD-hosting/craft-design-field/issues"
+    },
+    "require": {
+        "php": "^8.2",
+        "craftcms/cms": "^5.8.0"
+    },
+    "require-dev": {
+        "craftcms/ecs": "dev-main",
+        "craftcms/phpstan": "dev-main",
+        "phpstan/phpstan": "^2.0",
+        "phpunit/phpunit": "^10.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "wmd\\designfield\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "wmd\\designfield\\tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "handle": "design-field",
+        "name": "Design Field",
+        "developer": "WMD",
+        "developerUrl": "https://wmd.hr/",
+        "class": "wmd\\designfield\\Plugin",
+        "documentationUrl": "https://github.com/WMD-hosting/craft-design-field/blob/main/README.md",
+        "changelogUrl": "https://raw.githubusercontent.com/WMD-hosting/craft-design-field/main/CHANGELOG.md"
+    },
+    "scripts": {
+        "test": "phpunit",
+        "check-cs": "ecs check --ansi",
+        "fix-cs": "ecs check --ansi --fix",
+        "phpstan": "phpstan --memory-limit=1G"
+    },
+    "config": {
+        "sort-packages": true,
+        "platform": {
+            "php": "8.2"
+        },
+        "allow-plugins": {
+            "yiisoft/yii2-composer": true,
+            "craftcms/plugin-installer": true
+        }
+    }
+}

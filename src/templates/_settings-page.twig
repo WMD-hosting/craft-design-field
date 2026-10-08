@@ -1,0 +1,48 @@
+{#
+  The Design Field settings page: Craft's plugin settings page (settings/plugins/_settings.twig)
+  plus tabs, which Craft draws in the pane header and switches. `tabs` and `selectedTab` come
+  from Plugin::getSettingsResponse(); the panes are in _settings.twig.
+#}
+{% requireAdmin false %}
+
+{% extends '_layouts/cp' %}
+{% set title = plugin.name %}
+{% set docTitle = title ~ ' - ' ~ 'Plugins'|t('app') %}
+{% set readOnly = readOnly ?? false %}
+{% set fullPageForm = not readOnly %}
+
+{% set crumbs = [
+  { label: 'Settings'|t('app'), url: url('settings') },
+  { label: 'Plugins'|t('app'), url: url('settings/plugins') },
+] %}
+
+{% set formActions = [
+  {
+    label: 'Save and continue editing'|t('app'),
+    redirect: "settings/plugins/#{plugin.handle}"|hash,
+    shortcut: true,
+    retainScroll: true,
+  },
+] %}
+
+{% if readOnly %}
+  {% set contentNotice = readOnlyNotice() %}
+{% endif %}
+
+{# Editions: nothing is gated. Draft gets one quiet line inviting a licence; Published says thanks. #}
+{% set toolbar %}
+  {% if plugin.is('published') %}
+    <span class="light">{{ 'Published ✓'|t('design-field') }}</span>
+  {% else %}
+    <span class="light">{{ 'You’re on Draft.'|t('design-field') }} <a href="{{ cpUrl('plugin-store/' ~ plugin.handle) }}">{{ 'Like it? Publish it →'|t('design-field') }}</a></span>
+  {% endif %}
+{% endset %}
+
+{% block content %}
+  {% if not readOnly %}
+    {{ actionInput('plugins/save-plugin-settings') }}
+    {{ hiddenInput('pluginHandle', plugin.handle) }}
+    {{ redirectInput('settings') }}
+  {% endif %}
+  {{ settingsHtml|raw }}
+{% endblock %}

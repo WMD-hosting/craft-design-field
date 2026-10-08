@@ -1,0 +1,11 @@
+<table class="data fullwidth" style="margin-top: var(--s)">
+  <thead><tr><th scope="col">{{ 'Group'|t('design-field') }}</th><th scope="col">{{ 'Keys'|t('design-field') }}</th></tr></thead>
+  <tbody>
+    {% for handle, group in groups %}
+      <tr>
+        <th scope="row">{{ group.label }} <code class="light">{{ handle }}</code></th>
+        <td>{% for key, option in group.options %}<code>{{ key }}</code>{{ key == group.default ? ' ★' }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>

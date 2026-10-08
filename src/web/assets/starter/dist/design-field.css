@@ -1,0 +1,55 @@
+/*
+ * Design Field starter styles: the classes the starter options use in plain CSS, and the
+ * entrances for every framework. Override the custom properties to match your site:
+ *   :root { --df-brand: #0f766e; --df-page-width: 72rem; }
+ */
+:root {
+  --df-light: #f3f4f6;
+  --df-dark: #111827;
+  --df-brand: #4f46e5;
+  --df-on-dark: #ffffff;
+  --df-page-width: 80rem;
+  --df-gutter: 1rem;
+}
+
+/* Section tone */
+.df-tone-none { background-color: transparent; }
+.df-tone-light { background-color: var(--df-light); color: var(--df-dark); }
+.df-tone-dark { background-color: var(--df-dark); color: var(--df-on-dark); }
+.df-tone-brand { background-color: var(--df-brand); color: var(--df-on-dark); }
+
+/* Section spacing */
+.df-space-none { padding-block: 0; }
+.df-space-small { padding-block: 2rem; }
+.df-space-medium { padding-block: 4rem; }
+.df-space-large { padding-block: 6rem; }
+
+/* Container */
+.df-container-boxed { max-width: var(--df-page-width); margin-inline: auto; padding-inline: var(--df-gutter); }
+.df-container-wide { width: 100%; padding-inline: var(--df-gutter); }
+
+/* Alignment */
+.df-align-start { text-align: start; }
+.df-align-center { text-align: center; }
+.df-align-end { text-align: end; }
+
+/* Entrance: as the block scrolls into view where browsers support it, on load elsewhere.
+   Visitors who ask for less motion see the block as it is. */
+@media (prefers-reduced-motion: no-preference) {
+  .df-enter-fade { animation: df-enter-fade 0.7s ease-out both; }
+  .df-enter-fade-up { animation: df-enter-fade-up 0.7s ease-out both; }
+  .df-enter-zoom { animation: df-enter-zoom 0.7s ease-out both; }
+
+  @supports (animation-timeline: view()) {
+    .df-enter-fade,
+    .df-enter-fade-up,
+    .df-enter-zoom {
+      animation-timeline: view();
+      animation-range: entry 0% cover 25%;
+    }
+  }
+}
+
+@keyframes df-enter-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes df-enter-fade-up { from { opacity: 0; transform: translateY(1.5rem); } to { opacity: 1; transform: none; } }
+@keyframes df-enter-zoom { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
