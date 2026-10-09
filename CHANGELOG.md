@@ -1,5 +1,10 @@
 # Release Notes for Design Field
 
+## 1.0.4 - 2026-10-09
+
+### Changed
+- Design Field is free with every feature, in one edition. The Pro edition is gone (it unlocked nothing); the settings page now links to the Plugin Store to leave a review. Installs on Pro move to the single edition on their own.
+
 ## 1.0.3 - 2026-10-08
 
 ### Removed

@@ -31,9 +31,9 @@ New to Design Field, with no options yet? About ten minutes:
 
 Sites that already have option fields: see **Tidy up** below.
 
-## Editions
+## Price
 
-**Standard** (free) has every feature. **Pro** is for people who like it: nothing is locked, it buys priority answers and a say in the roadmap. The settings page shows one quiet line on Standard ("Like it? Go Pro →") and "Pro ✓" on Pro; there are no banners.
+Free, with every feature. If it saves you time, a review in the Plugin Store helps most; the settings page has one quiet link to it ("Like it? Leave a review →") and no banners.
 
 ## Requirements
 

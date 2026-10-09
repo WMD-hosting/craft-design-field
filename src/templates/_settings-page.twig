@@ -29,13 +29,9 @@
   {% set contentNotice = readOnlyNotice() %}
 {% endif %}
 
-{# Editions: nothing is gated. Standard gets one quiet line inviting a licence; Pro says thanks. #}
+{# Free with every feature: one quiet line asking for a review. #}
 {% set toolbar %}
-  {% if plugin.is('pro') %}
-    <span class="light">{{ 'Pro ✓'|t('design-field') }}</span>
-  {% else %}
-    <span class="light">{{ 'You’re on Standard.'|t('design-field') }} <a href="{{ cpUrl('plugin-store/' ~ plugin.handle) }}">{{ 'Like it? Go Pro →'|t('design-field') }}</a></span>
-  {% endif %}
+  <span class="light"><a href="{{ cpUrl('plugin-store/' ~ plugin.handle) }}">{{ 'Like it? Leave a review →'|t('design-field') }}</a></span>
 {% endset %}
 
 {% block content %}

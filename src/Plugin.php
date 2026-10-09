@@ -52,19 +52,6 @@ use yii\web\Response;
  */
 class Plugin extends BasePlugin
 {
-    // Const Properties
-    // =========================================================================
-
-    /**
-     * Edition: free, with every feature.
-     */
-    public const EDITION_STANDARD = 'standard';
-
-    /**
-     * Edition: paid, for people who like it. Nothing is gated; it buys support and a say in the roadmap.
-     */
-    public const EDITION_PRO = 'pro';
-
     // Public Properties
     // =========================================================================
 
@@ -90,14 +77,6 @@ class Plugin extends BasePlugin
 
     // Public Methods
     // =========================================================================
-
-    /**
-     * @inheritdoc
-     */
-    public static function editions(): array
-    {
-        return [self::EDITION_STANDARD, self::EDITION_PRO];
-    }
 
     /**
      * @inheritdoc
