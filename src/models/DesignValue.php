@@ -8,6 +8,7 @@
 namespace wmd\designfield\models;
 
 use ArrayAccess;
+use JsonSerializable;
 use LogicException;
 use Stringable;
 use wmd\designfield\helpers\Registry;
@@ -23,7 +24,7 @@ use wmd\designfield\helpers\Registry;
  * @since 1.0.0
  * @implements ArrayAccess<string,Token>
  */
-class DesignValue implements ArrayAccess, Stringable
+class DesignValue implements ArrayAccess, JsonSerializable, Stringable
 {
     // Private Properties
     // =========================================================================
@@ -208,6 +209,21 @@ class DesignValue implements ArrayAccess, Stringable
         ));
 
         return array_merge($stored, $this->keys());
+    }
+
+    /**
+     * JSON is the stored keys, never the classes `__toString` prints: serializers that
+     * check for JsonSerializable first (MCP servers, `json_encode`) get data an agent can
+     * read and write back.
+     *
+     * @return array<string,string>
+     *
+     * @author WMD
+     * @since 1.0.5
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 
     /**

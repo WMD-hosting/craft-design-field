@@ -263,6 +263,15 @@ craft design-field/schema --agents=AGENTS.md --check   # CI: exit code 1 when th
 
 The rest of the file is left as it is; run it again after changing the configuration.
 
+### MCP servers
+
+Agents connected through an MCP server read and write a Design field as the same object it stores, `{"tone": "dark", "spacing": "loose", …}`:
+
+- **MCP - All in one** (`rewi.sh/craft-mcp`): Design Field registers a field translator when the plugin is installed, so `get_entry` returns the object instead of the block's CSS classes.
+- **MCP** by stimmt (`stimmt/craft-mcp`): reads the stored value, nothing to set up.
+
+To change options, send back the whole object you read with one key changed. A partial object resets the options it leaves out to their defaults. Unknown keys fail validation, so an agent gets an error, not a silent reset.
+
 ## Usage report
 
 ```bash

@@ -6,6 +6,7 @@ Flat reference. Full prose is in README.md. Field type: wmd\designfield\fields\D
 JSON object, group handle => option key: {"variant":"cards","tone":"surface","columns":"4"}. Keys only, never CSS.
 GraphQL: JSON string of the same shape, read and write.
 Invalid keys are rejected on save (validation error "<key> is not an option of <group>").
+MCP: rewi.sh/craft-mcp gets this object through a field translator (registered only when that plugin is installed); stimmt/craft-mcp reads it via serializeValue. Write back the whole object: missing groups fall back to their defaults. json_encode(DesignValue) = the same object.
 
 ## Twig
 craft.designField.of(block: Element|array|DesignValue, profile: ?string = null): DesignValue - Design field value, or old option fields / mock map read leniently

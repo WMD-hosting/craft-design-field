@@ -1,5 +1,11 @@
 # Release Notes for Design Field
 
+## 1.0.5 - 2026-10-15
+
+### Added
+- MCP servers get the Design value as data. MCP - All in one (`rewi.sh/craft-mcp`) printed it as the block's CSS classes, so an agent reading an entry could not tell which options were picked; Design Field now registers a field translator with it (only when it is installed), and `get_entry` returns `{"tone": "dark", "spacing": "loose", …}`. Send the same object back with `update_entry` to change options; unknown keys fail validation. The MCP plugin by stimmt (`stimmt/craft-mcp`) already returned the keys.
+- The Design value is `JsonSerializable`: `json_encode()` gives the stored keys, not the classes.
+
 ## 1.0.4 - 2026-10-09
 
 ### Changed

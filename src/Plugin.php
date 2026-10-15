@@ -22,6 +22,7 @@ use wmd\designfield\fields\Design;
 use wmd\designfield\helpers\Registry;
 use wmd\designfield\helpers\Starter;
 use wmd\designfield\helpers\UsageReport;
+use wmd\designfield\integrations\McpServers;
 use wmd\designfield\models\Settings;
 use wmd\designfield\services\Converter;
 use wmd\designfield\services\Groups;
@@ -112,6 +113,8 @@ class Plugin extends BasePlugin
             $variable = $event->sender;
             $variable->set('designField', DesignFieldVariable::class);
         });
+
+        McpServers::register();
     }
 
     /**
