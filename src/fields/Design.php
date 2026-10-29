@@ -19,6 +19,7 @@ use craft\helpers\Json;
 use craft\helpers\UrlHelper;
 use GraphQL\Type\Definition\Type;
 use wmd\designfield\events\DefinePanelGroupsEvent;
+use wmd\designfield\fields\conditions\DesignVariantConditionRule;
 use wmd\designfield\helpers\OptionOrder;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
@@ -191,12 +192,7 @@ class Design extends Field implements PreviewableFieldInterface
             return $value;
         }
 
-        $keys = is_string($value) ? Json::decodeIfJson($value) : $value;
-
-        return Plugin::getInstance()->getGroups()->getRegistry()->value(
-            is_array($keys) ? $keys : [],
-            $this->_profilesFor($element),
-        );
+        return Plugin::getInstance()->getGroups()->getRegistry()->valueFromInput($value, $this->_profilesFor($element));
     }
 
     /**
@@ -243,6 +239,15 @@ class Design extends Field implements PreviewableFieldInterface
                         return;
                     }
 
+                    if ($value->rejected() !== null) {
+                        $element->addError("field:$this->handle", Craft::t('design-field', '“{value}” is not a design value. Send a JSON object of option handle => choice key, e.g. {example}.', [
+                            'value' => mb_strimwidth($value->rejected(), 0, 60, '…'),
+                            'example' => '{"tone": "dark"}',
+                        ]));
+
+                        return;
+                    }
+
                     foreach ($value->invalid() as $group => $key) {
                         $element->addError("field:$this->handle", Craft::t('design-field', '“{key}” is not an option of {group}.', [
                             'key' => $key,
@@ -252,6 +257,19 @@ class Design extends Field implements PreviewableFieldInterface
                 },
             ],
         ];
+    }
+
+    /**
+     * Lets field layout conditions ("Show when") and other element conditions test the chosen variant.
+     *
+     * @return string
+     *
+     * @author WMD
+     * @since 1.0.6
+     */
+    public function getElementConditionRuleType(): array|string|null
+    {
+        return DesignVariantConditionRule::class;
     }
 
     /**

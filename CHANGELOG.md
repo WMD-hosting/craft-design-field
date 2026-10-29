@@ -1,5 +1,13 @@
 # Release Notes for Design Field
 
+## 1.0.6 - 2026-10-29
+
+### Added
+- A condition rule, Design → Variant is one of. In a field layout, set a field's "Show when" to the variants that use it, and the field shows only while one of them is picked: Craft updates the form as the editor picks another variant. The rule offers the variants of the entry type's profile.
+
+### Fixed
+- A Design value sent as a plain string (`"dark"`) or a number now fails validation. It used to become an empty choice map, so the save reset every option of the block to its default without an error. MCP agents hit this when a schema tool told them to send a string; send a JSON object of option handle => choice key instead, the same shape `get_entry` returns.
+
 ## 1.0.5 - 2026-10-15
 
 ### Added

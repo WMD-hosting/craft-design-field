@@ -43,6 +43,8 @@ class DesignValue implements ArrayAccess, JsonSerializable, Stringable
      * @param array<string,Group> $allGroups Every configured group
      * @param bool $lenient Read from old fields or mock data: keep every key the
      *     template used to see, also for groups outside the profile
+     * @param ?string $rejected Input that was not a key map (a plain string, a
+     *     number), kept so validation refuses it instead of saving defaults
      *
      * @author WMD
      * @since 1.0.0
@@ -52,6 +54,7 @@ class DesignValue implements ArrayAccess, JsonSerializable, Stringable
         private readonly array $groups,
         private readonly array $allGroups,
         private readonly bool $lenient = false,
+        private readonly ?string $rejected = null,
     ) {
     }
 
@@ -188,6 +191,22 @@ class DesignValue implements ArrayAccess, JsonSerializable, Stringable
         }
 
         return $invalid;
+    }
+
+    /**
+     * Input that was not a key map, or null when the value came from one.
+     *
+     * The value then holds every default; saving it would reset the block's
+     * options, so validation refuses it.
+     *
+     * @return ?string
+     *
+     * @author WMD
+     * @since 1.0.6
+     */
+    public function rejected(): ?string
+    {
+        return $this->rejected;
     }
 
     /**

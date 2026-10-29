@@ -7,6 +7,7 @@
 
 namespace wmd\designfield\helpers;
 
+use craft\helpers\Json;
 use InvalidArgumentException;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
@@ -359,6 +360,38 @@ class Registry
     public function value(array $keys, string|array|null $profile): DesignValue
     {
         return new DesignValue($keys, $this->groupsFor($profile), $this->groups);
+    }
+
+    /**
+     * Builds a value from whatever a field receives: the stored JSON, a posted
+     * array, a GraphQL or MCP payload.
+     *
+     * Empty input means no choices yet. Anything else that is not a key map
+     * (a plain string such as `dark`, a number) is kept as rejected, so the
+     * field's validation fails instead of silently resetting every option.
+     *
+     * @param mixed $input JSON object string, array of group handle => option key, or empty
+     * @param string|string[]|null $profile One profile name or a list of candidates
+     * @return DesignValue
+     *
+     * @author WMD
+     * @since 1.0.6
+     */
+    public function valueFromInput(mixed $input, string|array|null $profile): DesignValue
+    {
+        $keys = is_string($input) ? Json::decodeIfJson($input) : $input;
+
+        if ($keys === null || $keys === '') {
+            return $this->value([], $profile);
+        }
+
+        if (is_array($keys)) {
+            return $this->value($keys, $profile);
+        }
+
+        $rejected = is_string($input) ? $input : (is_scalar($input) ? Json::encode($input) : get_debug_type($input));
+
+        return new DesignValue([], $this->groupsFor($profile), $this->groups, rejected: $rejected);
     }
 
     /**
