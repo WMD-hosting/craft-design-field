@@ -257,17 +257,19 @@ class GroupInput
     /**
      * Wraps a Design panel in the field's view mode: as is (panel), behind a one-line
      * summary of what is set with Edit (summary), or in a closed section (collapsed). The
-     * panel stays in the form either way, so every choice is posted.
+     * panel stays in the form either way, so every choice is posted. With `$open`, the
+     * summary and the section start open.
      *
      * @param string $mode One of the Design::VIEW_* constants
      * @param DesignValue $value
      * @param string $panel The panel HTML
+     * @param bool $open Start with the panel shown (a new element)
      * @return string
      *
      * @author WMD
      * @since 1.0.0
      */
-    public static function view(string $mode, DesignValue $value, string $panel): string
+    public static function view(string $mode, DesignValue $value, string $panel, bool $open = false): string
     {
         if ($mode !== 'summary' && $mode !== 'collapsed') {
             return $panel;
@@ -298,6 +300,8 @@ class GroupInput
         $attributes = ['class' => ['df-view', "df-view--$mode"], 'data' => ['df-view' => Json::encode($map)]];
 
         if ($mode === 'collapsed') {
+            $attributes['open'] = $open;
+
             return Html::tag('details',
                 Html::tag('summary',
                     Html::tag('span', Craft::t('design-field', 'Options'), ['class' => 'df-view-title']) .
@@ -311,9 +315,9 @@ class GroupInput
         return Html::tag('div',
             Html::tag('div',
                 Html::tag('span', $chips !== '' ? $chips : Html::tag('span', Craft::t('design-field', 'All options at their defaults.'), ['class' => 'light']), ['class' => 'df-summary-chips', 'data' => ['df-summary' => true]]) .
-                Html::button(Craft::t('design-field', 'Edit'), ['type' => 'button', 'class' => ['btn', 'small'], 'data' => ['icon' => 'edit', 'df-view-toggle' => true], 'aria-expanded' => 'false']),
+                Html::button(Craft::t('design-field', 'Edit'), ['type' => 'button', 'class' => ['btn', 'small'], 'data' => ['icon' => 'edit', 'df-view-toggle' => true], 'aria-expanded' => $open ? 'true' : 'false']),
                 ['class' => 'df-summary'],
-            ) . Html::tag('div', $panel, ['class' => 'df-view-panel', 'hidden' => true]),
+            ) . Html::tag('div', $panel, ['class' => 'df-view-panel', 'hidden' => !$open]),
             $attributes,
         );
     }

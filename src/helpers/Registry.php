@@ -32,6 +32,16 @@ class Registry
     public const FALLBACK_PROFILE = '*';
 
     /**
+     * Profile key that sets the profile's view mode instead of naming a group.
+     */
+    public const VIEW_KEY = '_view';
+
+    /**
+     * View modes a profile can set, the same as the field's `viewMode`.
+     */
+    public const VIEW_MODES = ['panel', 'summary', 'collapsed'];
+
+    /**
      * Group handles that would shadow DesignValue methods in Twig.
      */
     public const RESERVED_HANDLES = ['classes', 'keys', 'groups', 'invalid', 'toArray', 'has', 'get'];
@@ -48,6 +58,7 @@ class Registry
      * @param list<array<string,string>> $inputNotes Control-panel styles that were skipped, hide a config style, or point at nothing
      * @param array<string,list<string>> $styleUse Choice value (`icons`, `select`…) => handles of the options shown that way, before any swap
      * @param array<string,array<string,array{label:string,icon:?string}>> $baseOptions Group handle => option key => label and icon before the settings page changed them
+     * @param array<string,string> $profileViews Profile name => view mode (`panel`, `summary`, `collapsed`) that replaces the field's own
      *
      * @author WMD
      * @since 1.0.0
@@ -61,6 +72,7 @@ class Registry
         public readonly array $inputNotes = [],
         public readonly array $styleUse = [],
         public readonly array $baseOptions = [],
+        public readonly array $profileViews = [],
     ) {
     }
 
@@ -69,7 +81,8 @@ class Registry
      *
      * A profile lists shared group handles; `'group' => 'key'` overrides a
      * shared group's default, and `'group' => [...]` defines a group local to
-     * the profile (e.g. each block's own `variant` list).
+     * the profile (e.g. each block's own `variant` list). `'_view' => 'panel'`
+     * shows that profile's panel in another view mode than the field's.
      *
      * @param array<string,mixed> $config
      * @param callable(string):array<string,mixed> $loadTokens Reads a token file by name
@@ -91,11 +104,19 @@ class Registry
         }
 
         $profiles = [];
+        $profileViews = [];
 
         foreach ($config['profiles'] ?? [] as $name => $definition) {
             $profile = [];
 
             foreach ($definition as $key => $value) {
+                if ($key === self::VIEW_KEY) {
+                    $profileViews[(string)$name] = in_array($value, self::VIEW_MODES, true)
+                        ? $value
+                        : throw new InvalidArgumentException("Design profile \"$name\" sets an unknown view \"$value\".");
+                    continue;
+                }
+
                 if (is_int($key)) {
                     $profile[$value] = $groups[$value] ?? throw new InvalidArgumentException("Design profile \"$name\" uses unknown group \"$value\".");
                     continue;
@@ -226,7 +247,29 @@ class Registry
             $notes,
             array_map(static fn(array $handles) => array_map('strval', array_keys($handles)), $styleUse),
             $baseOptions,
+            $profileViews,
         );
+    }
+
+    /**
+     * The view mode a profile sets with `_view`: that of its first matching
+     * candidate, null when none sets one (the field's own applies).
+     *
+     * @param string|string[]|null $profile One profile name or a list of candidates
+     * @return string|null
+     *
+     * @author WMD
+     * @since 1.0.7
+     */
+    public function viewFor(string|array|null $profile): ?string
+    {
+        foreach ((array)$profile as $candidate) {
+            if (isset($this->profiles[$candidate])) {
+                return $this->profileViews[$candidate] ?? null;
+            }
+        }
+
+        return null;
     }
 
     /**

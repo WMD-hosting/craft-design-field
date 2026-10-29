@@ -354,9 +354,15 @@ class Design extends Field implements PreviewableFieldInterface
 
         $html .= GroupInput::fields($groups, $keys, $this->handle, $this->static, $this->optionLayout, $this->_usageFor($groups, $element), $hidden);
 
-        return GroupInput::view($this->viewMode, $value, Html::tag('div', $html, [
+        $registry = Plugin::getInstance()->getGroups()->getRegistry();
+        // A profile can show its panel in another mode (campaigns keep the layout tiles in view), and a new
+        // element starts with a closed panel open: that is when the editor picks how it looks.
+        $mode = $registry->viewFor($this->_profilesFor($element)) ?? $this->viewMode;
+        $isNew = $element === null || $element->id === null || $element->getIsUnpublishedDraft();
+
+        return GroupInput::view($mode, $value, Html::tag('div', $html, [
             'class' => ['design-field', $this->optionLayout === self::LAYOUT_SIDE ? 'df-side' : null],
-        ]));
+        ]), $isNew);
     }
 
     // Private Methods

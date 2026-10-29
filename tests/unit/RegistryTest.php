@@ -28,6 +28,7 @@ final class RegistryTest extends TestCase
             ],
             'profiles' => [
                 'blockCta' => ['tone', 'spacing' => 'loose'],
+                'campaign' => ['_view' => 'panel', 'tone'],
                 '*' => ['spacing'],
             ],
         ], static fn(string $name) => $tokens[$name]);
@@ -303,5 +304,22 @@ final class RegistryTest extends TestCase
         $group = Group::fromConfig('cols', [], array_fill_keys(['1', '2', '3', '4', '5', '6'], 'x'));
 
         self::assertSame(Group::INPUT_SELECT, $group->input);
+    }
+
+    public function testAProfileCanSetItsViewMode(): void
+    {
+        $registry = $this->registry();
+
+        self::assertSame(['tone'], array_keys($registry->groupsFor('campaign')));
+        self::assertSame('panel', $registry->viewFor(['pageBuilder:campaign', 'campaign']));
+        self::assertNull($registry->viewFor('blockCta'));
+        self::assertNull($registry->viewFor('unknown'));
+    }
+
+    public function testAnUnknownViewModeIsRefused(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        Registry::fromConfig(['profiles' => ['campaign' => ['_view' => 'open']]], static fn() => []);
     }
 }

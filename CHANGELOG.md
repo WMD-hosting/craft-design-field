@@ -1,5 +1,13 @@
 # Release Notes for Design Field
 
+## 1.0.7 - 2026-10-29
+
+### Added
+- A profile can set its own view mode with `'_view' => 'panel'` (or `summary`, `collapsed`), which replaces the field's View setting for that profile only. Useful where the layout choice comes first, such as a campaign whose design tiles should stay in view.
+
+### Changed
+- A collapsed or summary Design panel starts open on a new element (a new entry, a block just added), when the editor is picking how it looks. Saved elements keep the panel closed as before.
+
 ## 1.0.6 - 2026-10-29
 
 ### Added

@@ -154,6 +154,14 @@ The map applies to every option with the handle, including a block's own lists; 
 
 Like Matrix, the field has a **View Mode** (field settings): **As a panel** (every option open, the default), **As a summary** (one line of what differs from the defaults, e.g. `Section tone: Brand primary`, with **Edit** to open the panel) or **Collapsed** (a closed “Design” section with the number of changes). The summary follows the editor's changes before saving; every choice is posted whichever mode is used. The field settings also link to the Design Field settings page.
 
+A summary or collapsed panel starts open on a new element (a new entry, a block just added), when the editor picks how it looks. One profile can use another mode than the field with `'_view'` in its config, for example a campaign whose layout tiles should always be in view:
+
+```php
+'profiles' => [
+    'campaign' => ['_view' => 'panel', 'variant' => [/* … */]],
+],
+```
+
 **Option Layout** (field settings): **In sections** (the default; each section on its own row under its heading), **Sections side by side** (headings kept; small sections share a row, sized by the options the current layout shows) or **Inline** (every option one after another, still in section order, without headings).
 
 ### Presets
