@@ -3,9 +3,14 @@ declare(strict_types=1);
 
 namespace wmd\designfield\tests\feature;
 
+use CraftCms\Cms\Field\FieldContext;
 use CraftCms\Cms\Field\FieldTypes;
 use CraftCms\Cms\Plugin\Testing\PluginTestCase;
 use CraftCms\Cms\Twig\Variables\CraftVariable;
+use CraftCms\Cms\Ui\Controls\Choice;
+use CraftCms\Cms\Ui\Controls\ContentBlock;
+use CraftCms\Cms\Ui\Controls\Lightswitch;
+use CraftCms\Cms\Ui\Controls\Textarea;
 use Illuminate\Support\Facades\Artisan;
 use wmd\designfield\fields\Design;
 use wmd\designfield\models\DesignValue;
@@ -28,8 +33,10 @@ final class PluginTest extends PluginTestCase
                 return [
                     'groups' => [
                         'tone' => ['label' => 'Tone', 'options' => ['light' => 'bg-white', 'dark' => 'bg-black'], 'default' => 'light'],
+                        'border' => ['label' => 'Border', 'input' => 'toggle', 'options' => ['off' => '', 'on' => 'border'], 'default' => 'off'],
+                        'shade' => ['label' => 'Shade', 'section' => 'Colour', 'options' => ['soft' => 'opacity-50', 'full' => 'opacity-100'], 'showIf' => ['tone' => ['dark']]],
                     ],
-                    'profiles' => ['blockCta' => ['tone']],
+                    'profiles' => ['blockCta' => ['tone', 'border', 'shade']],
                 ] + parent::config();
             }
         });
@@ -47,12 +54,49 @@ final class PluginTest extends PluginTestCase
         $value = $field->normalizeValue(['tone' => 'dark'], null);
         self::assertInstanceOf(DesignValue::class, $value);
         self::assertSame([], $value->invalid());
-        self::assertSame(['tone' => 'dark'], $field->serializeValue($value, null));
+        self::assertSame('dark', $field->serializeValue($value, null)['tone']);
 
         $posted = $field->normalizeValueFromRequest('{"tone":"dark"}', null);
-        self::assertSame(['tone' => 'dark'], $posted->toArray());
+        self::assertSame('dark', $posted->toArray()['tone']);
 
         self::assertSame(['tone' => 'neon'], $field->normalizeValue(['tone' => 'neon'], null)->invalid());
+    }
+
+    public function testASwitchedOffToggleMeansItsFirstOption(): void
+    {
+        $field = new Design(['handle' => 'design', 'profile' => 'blockCta']);
+
+        self::assertSame('off', $field->normalizeValueFromRequest(['tone' => 'dark', 'border' => ''], null)->toArray()['border']);
+        self::assertSame('on', $field->normalizeValueFromRequest(['tone' => 'dark', 'border' => 'on'], null)->toArray()['border']);
+    }
+
+    public function testThePanelIsOneControlPerOption(): void
+    {
+        $field = new Design(['handle' => 'design', 'profile' => 'blockCta']);
+        $control = $field->uiControl(new FieldContext('design', $field->normalizeValue(['tone' => 'light'], null)));
+
+        self::assertInstanceOf(ContentBlock::class, $control);
+
+        $nodes = $control->nestedUis([])[0]['ui']->nodes();
+        self::assertInstanceOf(Choice::class, $nodes[0]->getControl());
+        self::assertSame('tone', $nodes[0]->getControl()->path());
+        self::assertSame('light', $nodes[0]->getControl()->getValue());
+        self::assertInstanceOf(Lightswitch::class, $nodes[1]->getControl());
+        self::assertFalse($nodes[1]->getControl()->getValue());
+
+        // The section "Colour" holds Shade, which only applies to a dark tone.
+        $shade = $nodes[2]->children()[0];
+        self::assertFalse($shade->isVisible());
+
+        $dark = $field->uiControl(new FieldContext('design', $field->normalizeValue(['tone' => 'dark'], null)));
+        self::assertTrue($dark->nestedUis([])[0]['ui']->nodes()[2]->children()[0]->isVisible());
+    }
+
+    public function testAValueThatIsNoOptionMapIsShownAsText(): void
+    {
+        $field = new Design(['handle' => 'design', 'profile' => 'blockCta']);
+
+        self::assertInstanceOf(Textarea::class, $field->uiControl(new FieldContext('design', $field->normalizeValue('not json', null))));
     }
 
     public function testCraftDesignFieldIsAvailableInTwig(): void
@@ -60,8 +104,8 @@ final class PluginTest extends PluginTestCase
         $variable = $this->app->make(CraftVariable::class)->designField();
 
         self::assertInstanceOf(DesignFieldVariable::class, $variable);
-        self::assertSame(['tone'], array_keys($variable->groups()));
-        self::assertSame(['tone' => 'dark'], $variable->value(['tone' => 'dark'], 'blockCta')->toArray());
+        self::assertSame(['tone', 'border', 'shade'], array_keys($variable->groups()));
+        self::assertSame('dark', $variable->value(['tone' => 'dark'], 'blockCta')->toArray()['tone']);
     }
 
     public function testTheSchemaCommandPrintsTheOptionModel(): void

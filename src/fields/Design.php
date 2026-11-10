@@ -15,20 +15,22 @@ use CraftCms\Cms\Support\Html;
 use CraftCms\Cms\Support\Json;
 use CraftCms\Cms\Support\Query;
 use CraftCms\Cms\Ui\Contracts\Control;
+use CraftCms\Cms\Ui\Controls\ContentBlock;
 use CraftCms\Cms\Ui\Controls\Textarea;
 use Closure;
 use InvalidArgumentException;
 use Override;
 use wmd\designfield\models\DesignValue;
+use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
+use wmd\designfield\web\OptionControls;
 
 /**
  * The Design field on Craft 6: one JSON value of option handle => choice key,
  * read through the registry as a DesignValue.
  *
  * Same storage as the Craft 5 plugin, so imported values keep working. The
- * input is a JSON textarea for now; the option UI (swatches, sliders, tiles)
- * is rebuilt on Craft's CP kit later.
+ * input is one control per option, built on Craft's own UI kit.
  *
  * @author WMD
  * @since 2.0.0
@@ -95,7 +97,20 @@ class Design extends Field
     #[Override]
     public function normalizeValueFromRequest(mixed $value, ?ElementInterface $element): DesignValue
     {
-        return $this->normalizeValue(is_string($value) ? (Json::decodeIfJson($value) ?? $value) : $value, $element);
+        if (is_string($value)) {
+            $value = Json::decodeIfJson($value) ?? $value;
+        }
+
+        // A switched-off toggle posts an empty value; it means the first option.
+        if (is_array($value)) {
+            foreach (app(Groups::class)->getRegistry()->groupsFor($this->profilesFor($element)) as $handle => $group) {
+                if ($group->input === Group::INPUT_TOGGLE && array_key_exists($handle, $value) && (string)$value[$handle] === '') {
+                    $value[$handle] = (string)array_key_first($group->options);
+                }
+            }
+        }
+
+        return $this->normalizeValue($value, $element);
     }
 
     #[Override]
@@ -107,12 +122,25 @@ class Design extends Field
     #[Override]
     public function uiControl(FieldContext $context): Control
     {
-        $value = $context->value instanceof DesignValue ? $context->value->toArray() : $context->value;
+        $value = $context->value instanceof DesignValue
+            ? $context->value
+            : $this->normalizeValue($context->value, $context->element);
 
-        return Textarea::make($context->path)
-            ->rows(6)
-            ->monospace()
-            ->value($value ? Json::encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : null);
+        // Nothing to pick from, or a stored value that is no option map: show it as it is.
+        if ($value->groups() === [] || $value->rejected() !== null) {
+            $raw = $value->rejected() ?? $value->toArray();
+
+            return Textarea::make($context->path)
+                ->rows(6)
+                ->monospace()
+                ->value(is_array($raw) ? ($raw ? Json::encode($raw, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : null) : $raw);
+        }
+
+        return ContentBlock::make($context->path)
+            ->viewMode('grouped')
+            ->clearable(false)
+            ->ui(OptionControls::ui($value->groups(), $value->keys(), $this->optionLayout !== 'inline'))
+            ->value([]);
     }
 
     #[Override]
