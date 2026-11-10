@@ -242,4 +242,35 @@ final class PluginTest extends PluginTestCase
         self::assertSame(0, Artisan::call('design-field:usage'));
         self::assertStringContainsString('0 entry types', Artisan::output());
     }
+
+    public function testASectionWithNoOptionToShowIsHiddenWithItsHeading(): void
+    {
+        $field = new Design(['handle' => 'design', 'profile' => 'blockCta']);
+        $section = static fn(string $tone) => OptionControls::nodes(
+            $field->normalizeValue(['tone' => $tone], null)->groups(),
+            $field->normalizeValue(['tone' => $tone], null)->keys(),
+        )[2];
+
+        // "Colour" holds only Shade, which applies to a dark tone.
+        self::assertFalse($section('light')->isVisible());
+        self::assertTrue($section('dark')->isVisible());
+    }
+
+    public function testThePanelHasAControlForEveryOptionOfTheBlock(): void
+    {
+        $registry = $this->app->make(Groups::class)->getRegistry();
+
+        foreach ($registry->profileNames() as $profile) {
+            $value = $registry->value([], $profile);
+            $paths = [];
+            $collect = static function (array $nodes) use (&$collect, &$paths): void {
+                foreach ($nodes as $node) {
+                    $node instanceof \CraftCms\Cms\Ui\Nodes\Field ? $paths[] = $node->getControl()->path() : $collect($node->children());
+                }
+            };
+            $collect(OptionControls::nodes($value->groups(), $value->keys()));
+
+            self::assertEqualsCanonicalizing(array_map('strval', array_keys($value->groups())), $paths, "Profile $profile");
+        }
+    }
 }

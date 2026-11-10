@@ -7,6 +7,9 @@
 ### Added
 - A larger look at a layout tile: hovering it, or reaching it with the keyboard, shows the picture at its real size with the layout's name, above or below the tile's row. It opens after a short pause, closes at once, and never selects or saves. Touch has no hover, so a tap selects as before.
 
+### Fixed
+- A section whose options all wait for another choice (Colour & style and Spacing on an image block with the caption layout) no longer shows its heading over an empty area; it comes back with its options when the layout changes.
+
 ### Changed
 - Requires Craft CMS 6.0.0-beta.1 and PHP 8.5.
 - The Design panel is built on Craft's own controls, one per option: buttons, dropdowns, switches, radios with a colour, and cards with a picture, under the same section headings. An option that only applies to another choice shows or hides while editing, as Craft refreshes the form after each change.

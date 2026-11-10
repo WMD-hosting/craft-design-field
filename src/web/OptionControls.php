@@ -156,9 +156,14 @@ class OptionControls
                 continue;
             }
 
+            // A section whose options all wait for another choice has nothing to show:
+            // without this its heading would stand over an empty area.
+            $shown = array_filter($fields, static fn(Field $field) => $field->isVisible());
+
             $nodes[] = GroupNode::make("design-section-$index", $fields)
                 ->label($section['label'])
-                ->width($layout === Design::LAYOUT_SIDE ? FieldWidth::Half : null);
+                ->width($layout === Design::LAYOUT_SIDE ? FieldWidth::Half : null)
+                ->visible($shown !== []);
         }
 
         return $nodes;
