@@ -12,7 +12,7 @@ use InvalidArgumentException;
 use wmd\designfield\helpers\Registry;
 
 /**
- * Builds the design registry from the config file and the
+ * Builds the design registry from `config/craft/design-field.php` and the
  * `config/designtokens/*.json` files.
  *
  * There are no control-panel tables on Craft 6 yet, so the config file is the
@@ -29,10 +29,9 @@ class Groups
     public const TOKENS_DIR = 'designtokens';
 
     /**
-     * Config files, first one found wins: Craft 6's place for plugin config,
-     * then the file a project brings over from Craft 5.
+     * The config file, in Craft 6's place for plugin config.
      */
-    public const CONFIG_FILES = ['craft/design-field.php', 'design-field.php'];
+    public const CONFIG_FILE = 'craft/design-field.php';
 
     // Private Properties
     // =========================================================================
@@ -128,8 +127,8 @@ class Groups
     /**
      * The config file's array with the defaults filled in.
      *
-     * The file is read here rather than through `config('design-field')`: Laravel also
-     * loads `design-field.generated.php` and nests it under that key.
+     * The file is read here rather than through Laravel's `config()`, which would also
+     * load `design-field.generated.php` beside it as a config of its own.
      *
      * @return array<string,mixed>
      *
@@ -138,14 +137,8 @@ class Groups
      */
     public function config(): array
     {
-        $config = [];
-
-        foreach (self::CONFIG_FILES as $file) {
-            if (is_file($path = config_path($file))) {
-                $config = require $path;
-                break;
-            }
-        }
+        $path = config_path(self::CONFIG_FILE);
+        $config = is_file($path) ? require $path : [];
 
         return $config + [
             'groups' => [],

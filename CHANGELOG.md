@@ -10,7 +10,7 @@
 - The field settings are back: show the options as a panel, as a summary (a line saying what is set, the options behind Edit) or collapsed (a closed section that says how many options changed); lay them out in sections, sections side by side, or inline; and which block's options the field shows. A profile's `'_view'` still replaces the field's setting, and a new element starts open.
 - Layout pictures come from the web root again (`tileImages` in the config file, `/design-field/{type}/{key}.jpg` by default). A picture whose file is missing is left out instead of showing as a broken image.
 - Sliders and position grids show as buttons: Craft's range control is a plain number input with no named stops, and there is no grid control.
-- The configuration is the config file only: `config/craft/design-field.php`, or `config/design-field.php` as brought over from Craft 5. Token files stay in `config/designtokens/`.
+- The configuration is the config file only: `config/craft/design-field.php`. Token files stay in `config/designtokens/`.
 - The console commands are `php artisan design-field:schema`, `design-field:check` and `design-field:usage`, with the same options as on Craft 5. The template check reads `resources/views` (or `templates`) and the PHP under `app/`; set `templateCheck` in the config file to change that.
 - Craft's MCP server reads and writes a Design value as a map of option handle => choice key.
 
