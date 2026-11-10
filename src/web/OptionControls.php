@@ -16,6 +16,7 @@ use CraftCms\Cms\Ui\Nodes\Group as GroupNode;
 use CraftCms\Cms\Ui\Ui;
 use wmd\designfield\helpers\Sections;
 use wmd\designfield\models\Group;
+use wmd\designfield\services\Groups;
 
 /**
  * The Design panel as a Craft UI: one field per option, on the controls of
@@ -169,8 +170,13 @@ class OptionControls
                 $choice['color'] = $option['swatch'];
             }
 
+            // A picture whose file is missing would show as a broken image: leave it out.
             if (in_array($group->input, [Group::INPUT_TILES, Group::INPUT_RENDERED], true) && $option['image'] !== null) {
-                $choice['thumbnail'] = ['src' => $option['image']];
+                $picture = app(Groups::class)->picture($option['image']);
+
+                if ($picture !== null) {
+                    $choice['thumbnail'] = ['src' => $picture];
+                }
             }
 
             $options[] = $choice;

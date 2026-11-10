@@ -35,8 +35,13 @@ final class PluginTest extends PluginTestCase
                         'tone' => ['label' => 'Tone', 'options' => ['light' => 'bg-white', 'dark' => 'bg-black'], 'default' => 'light'],
                         'border' => ['label' => 'Border', 'input' => 'toggle', 'options' => ['off' => '', 'on' => 'border'], 'default' => 'off'],
                         'shade' => ['label' => 'Shade', 'section' => 'Colour', 'options' => ['soft' => 'opacity-50', 'full' => 'opacity-100'], 'showIf' => ['tone' => ['dark']]],
+                        'variant' => ['label' => 'Layout', 'input' => 'tiles', 'options' => [
+                            '_default' => ['label' => 'Split'],
+                            'wide' => ['label' => 'Wide'],
+                            'stack' => ['label' => 'Stack', 'image' => '/design-field/blockHero/gone.jpg'],
+                        ]],
                     ],
-                    'profiles' => ['blockCta' => ['tone', 'border', 'shade']],
+                    'profiles' => ['blockCta' => ['tone', 'border', 'shade'], 'blockHero' => ['variant']],
                 ] + parent::config();
             }
         });
@@ -102,6 +107,32 @@ final class PluginTest extends PluginTestCase
         self::assertTrue($dark->nestedUis([])[0]['ui']->nodes()[2]->children()[0]->isVisible());
     }
 
+    public function testALayoutGetsItsPictureFromTheWebRootAndAMissingOneIsLeftOut(): void
+    {
+        $root = sys_get_temp_dir() . '/design-field-' . uniqid();
+        mkdir("$root/design-field/blockHero", 0777, true);
+        touch("$root/design-field/blockHero/_default.jpg", 1700000000);
+        $this->app->usePublicPath($root);
+
+        $groups = $this->app->make(Groups::class);
+        self::assertSame('/design-field/blockHero/_default.jpg?v=1700000000', $groups->tileImage('blockHero', '_default'));
+        self::assertNull($groups->tileImage('blockHero', 'wide'));
+        self::assertNull($groups->tilePath('../etc', 'passwd'));
+
+        $field = new Design(['handle' => 'design', 'profile' => 'blockHero']);
+        $control = $field->uiControl(new FieldContext('design', $field->normalizeValue([], null)));
+        $options = $control->nestedUis([])[0]['ui']->nodes()[0]->getControl()->props()['options'];
+
+        self::assertSame(['src' => '/design-field/blockHero/_default.jpg?v=1700000000'], $options[0]['thumbnail']);
+        self::assertArrayNotHasKey('thumbnail', $options[1]);
+        self::assertArrayNotHasKey('thumbnail', $options[2]);
+
+        unlink("$root/design-field/blockHero/_default.jpg");
+        rmdir("$root/design-field/blockHero");
+        rmdir("$root/design-field");
+        rmdir($root);
+    }
+
     public function testAValueThatIsNoOptionMapIsShownAsText(): void
     {
         $field = new Design(['handle' => 'design', 'profile' => 'blockCta']);
@@ -114,7 +145,7 @@ final class PluginTest extends PluginTestCase
         $variable = $this->app->make(CraftVariable::class)->designField();
 
         self::assertInstanceOf(DesignFieldVariable::class, $variable);
-        self::assertSame(['tone', 'border', 'shade'], array_keys($variable->groups()));
+        self::assertSame(['tone', 'border', 'shade', 'variant'], array_keys($variable->groups()));
         self::assertSame('dark', $variable->value(['tone' => 'dark'], 'blockCta')->toArray()['tone']);
     }
 
