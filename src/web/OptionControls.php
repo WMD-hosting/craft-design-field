@@ -8,13 +8,18 @@
 namespace wmd\designfield\web;
 
 use CraftCms\Cms\Ui\Contracts\Control;
+use CraftCms\Cms\Ui\Contracts\Node;
 use CraftCms\Cms\Ui\Controls\Choice;
 use CraftCms\Cms\Ui\Controls\Lightswitch;
 use CraftCms\Cms\Ui\Enums\ChoicePresentation;
+use CraftCms\Cms\Ui\Enums\FieldWidth;
 use CraftCms\Cms\Ui\Nodes\Field;
 use CraftCms\Cms\Ui\Nodes\Group as GroupNode;
+use CraftCms\Cms\Ui\Nodes\MarkdownContent;
 use CraftCms\Cms\Ui\Ui;
+use wmd\designfield\fields\Design;
 use wmd\designfield\helpers\Sections;
+use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
 
@@ -35,6 +40,72 @@ class OptionControls
     // =========================================================================
 
     /**
+     * The panel in a view mode: every option open (panel), behind a line saying what is
+     * set (summary), or in a closed section (collapsed). The options are in the form
+     * either way, so every choice is posted.
+     *
+     * @param DesignValue $value
+     * @param string $mode One of the Design::VIEW_* constants
+     * @param bool $open Start with the options shown (a new element)
+     * @param string $layout One of the Design::LAYOUT_* constants
+     * @return Ui
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public static function panel(DesignValue $value, string $mode = Design::VIEW_PANEL, bool $open = false, string $layout = Design::LAYOUT_SECTIONS): Ui
+    {
+        $nodes = self::nodes($value->groups(), $value->keys(), $layout);
+
+        if ($mode !== Design::VIEW_SUMMARY && $mode !== Design::VIEW_COLLAPSED) {
+            return Ui::make($nodes);
+        }
+
+        $changes = self::changes($value);
+
+        if ($mode === Design::VIEW_COLLAPSED) {
+            $count = match (count($changes)) {
+                0 => 'Defaults',
+                1 => '1 change',
+                default => count($changes) . ' changes',
+            };
+
+            return Ui::make([
+                GroupNode::make('design-view', $nodes)->label("Options · $count")->collapsible()->expanded($open),
+            ]);
+        }
+
+        return Ui::make([
+            // Labels are plain text: keep Markdown from reading them as markup.
+            MarkdownContent::make('design-summary', $changes !== []
+                ? (string)preg_replace('/([\\\\`*_\[\]<>#|~])/', '\\\\$1', implode(' · ', $changes))
+                : 'All options at their defaults.')->displayInPane(false),
+            GroupNode::make('design-view', $nodes)->label('Edit')->collapsible()->expanded($open),
+        ]);
+    }
+
+    /**
+     * What differs from the defaults, one "Option: Choice" per changed option.
+     *
+     * @param DesignValue $value
+     * @return list<string>
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public static function changes(DesignValue $value): array
+    {
+        $groups = $value->groups();
+        $changes = [];
+
+        foreach ($value->changes() as $handle => $key) {
+            $changes[] = $groups[$handle]->label . ': ' . $groups[$handle]->options[$key]['label'];
+        }
+
+        return $changes;
+    }
+
+    /**
      * The panel for one block: its options under their section headings.
      *
      * @param array<string,Group> $groups The block's options, in panel order
@@ -47,23 +118,42 @@ class OptionControls
      */
     public static function ui(array $groups, array $keys, bool $headings = true): Ui
     {
-        $ui = Ui::make();
+        return Ui::make(self::nodes($groups, $keys, $headings ? Design::LAYOUT_SECTIONS : Design::LAYOUT_INLINE));
+    }
 
-        foreach (Sections::arrange($groups, $headings) as $index => $section) {
+    /**
+     * The options as nodes: a group per section, or one list (inline). Side by side,
+     * a section takes half the row.
+     *
+     * @param array<string,Group> $groups The block's options, in panel order
+     * @param array<string,string> $keys Option handle => current choice
+     * @param string $layout One of the Design::LAYOUT_* constants
+     * @return list<Node>
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public static function nodes(array $groups, array $keys, string $layout = Design::LAYOUT_SECTIONS): array
+    {
+        $nodes = [];
+
+        foreach (Sections::arrange($groups, $layout !== Design::LAYOUT_INLINE) as $index => $section) {
             $fields = array_map(
                 static fn(string $handle) => self::field($groups[$handle], $keys[$handle] ?? $groups[$handle]->default, $keys),
                 $section['groups'],
             );
 
             if ($section['label'] === '') {
-                $ui->add(...$fields);
+                array_push($nodes, ...$fields);
                 continue;
             }
 
-            $ui->add(GroupNode::make("design-section-$index", $fields)->label($section['label']));
+            $nodes[] = GroupNode::make("design-section-$index", $fields)
+                ->label($section['label'])
+                ->width($layout === Design::LAYOUT_SIDE ? FieldWidth::Half : null);
         }
 
-        return $ui;
+        return $nodes;
     }
 
     /**

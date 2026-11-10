@@ -15,9 +15,14 @@ use CraftCms\Cms\Support\Html;
 use CraftCms\Cms\Support\Json;
 use CraftCms\Cms\Support\Query;
 use CraftCms\Cms\Ui\Contracts\Control;
+use CraftCms\Cms\Ui\Controls\Choice;
 use CraftCms\Cms\Ui\Controls\ContentBlock;
 use CraftCms\Cms\Ui\Controls\Textarea;
+use CraftCms\Cms\Ui\Nodes\Field as UiField;
+use CraftCms\Cms\Ui\Ui;
+use CraftCms\Cms\Ui\UiContext;
 use Closure;
+use Illuminate\Validation\Rule;
 use InvalidArgumentException;
 use Override;
 use wmd\designfield\models\DesignValue;
@@ -37,6 +42,27 @@ use wmd\designfield\web\OptionControls;
  */
 class Design extends Field
 {
+    // Const Properties
+    // =========================================================================
+
+    /** Every option open. */
+    public const VIEW_PANEL = 'panel';
+
+    /** A line saying what is set, the options behind Edit. */
+    public const VIEW_SUMMARY = 'summary';
+
+    /** A closed section that opens on click. */
+    public const VIEW_COLLAPSED = 'collapsed';
+
+    /** Each section on its own row, with a heading. */
+    public const LAYOUT_SECTIONS = 'sections';
+
+    /** One option after another, no headings. */
+    public const LAYOUT_INLINE = 'inline';
+
+    /** Sections side by side. */
+    public const LAYOUT_SIDE = 'side';
+
     // Public Properties
     // =========================================================================
 
@@ -46,10 +72,14 @@ class Design extends Field
     public string $profile = '';
 
     /**
-     * Craft 5 input settings, kept so their project config still loads.
+     * How the options show on an element: panel, summary or collapsed.
      */
-    public string $viewMode = 'panel';
-    public string $optionLayout = 'sections';
+    public string $viewMode = self::VIEW_PANEL;
+
+    /**
+     * How the options are laid out: in sections, sections side by side, or inline.
+     */
+    public string $optionLayout = self::LAYOUT_SECTIONS;
 
     // Public Methods
     // =========================================================================
@@ -144,11 +174,60 @@ class Design extends Field
                 ->value(is_array($raw) ? ($raw ? Json::encode($raw, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : null) : $raw);
         }
 
+        // A profile can show its panel in another mode, and a new element starts with a
+        // closed panel open: that is when the editor picks how it looks.
+        $mode = app(Groups::class)->getRegistry()->viewFor($this->profilesFor($context->element)) ?? $this->viewMode;
+        $element = $context->element;
+        $isNew = $element === null || $element->id === null || $element->getIsUnpublishedDraft();
+
         return ContentBlock::make($context->path)
             ->viewMode('grouped')
             ->clearable(false)
-            ->ui(OptionControls::ui($value->groups(), $value->keys(), $this->optionLayout !== 'inline'))
+            ->ui(OptionControls::panel($value, $mode, $isNew, $this->optionLayout))
             ->value([]);
+    }
+
+    #[Override]
+    public function settingsUi(UiContext $context = new UiContext): Ui
+    {
+        $profiles = [['label' => "The element's own (its type)", 'value' => '']];
+
+        foreach (app(Groups::class)->getRegistry()->profileNames() as $name) {
+            $profiles[] = ['label' => $name, 'value' => $name];
+        }
+
+        // A profile that is no longer in the config stays selectable, so saving does not drop it.
+        if ($this->profile !== '' && !in_array($this->profile, array_column($profiles, 'value'), true)) {
+            $profiles[] = ['label' => "$this->profile (not in the config)", 'value' => $this->profile];
+        }
+
+        return Ui::make([
+            UiField::make('Show the options')
+                ->instructions('A block can set its own in the config file (`_view`); a new element always starts open.')
+                ->control(Choice::make('viewMode')->withoutPlaceholder()->options([
+                    ['label' => 'As a panel (every option open)', 'value' => self::VIEW_PANEL],
+                    ['label' => 'As a summary (what is set, with Edit)', 'value' => self::VIEW_SUMMARY],
+                    ['label' => 'Collapsed (opens on click)', 'value' => self::VIEW_COLLAPSED],
+                ])->value($this->viewMode)),
+            UiField::make('Lay the options out')
+                ->control(Choice::make('optionLayout')->withoutPlaceholder()->options([
+                    ['label' => 'In sections (each on its own row, with a heading)', 'value' => self::LAYOUT_SECTIONS],
+                    ['label' => 'Sections side by side', 'value' => self::LAYOUT_SIDE],
+                    ['label' => 'Inline (one after another, no headings)', 'value' => self::LAYOUT_INLINE],
+                ])->value($this->optionLayout)),
+            UiField::make('Options of')
+                ->instructions('Which block\'s options this field shows. Leave it on the element\'s own unless one field serves a fixed set.')
+                ->control(Choice::make('profile')->withoutPlaceholder()->options($profiles)->value($this->profile)),
+        ]);
+    }
+
+    #[Override]
+    public function getRules(): array
+    {
+        return array_merge(parent::getRules(), [
+            'viewMode' => [Rule::in([self::VIEW_PANEL, self::VIEW_SUMMARY, self::VIEW_COLLAPSED])],
+            'optionLayout' => [Rule::in([self::LAYOUT_SECTIONS, self::LAYOUT_SIDE, self::LAYOUT_INLINE])],
+        ]);
     }
 
     #[Override]
