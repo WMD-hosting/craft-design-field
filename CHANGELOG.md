@@ -8,11 +8,11 @@
 - Requires Craft CMS 6.0.0-beta.1 and PHP 8.5.
 - The Design panel is built on Craft's own controls, one per option: buttons, dropdowns, switches, radios with a colour, and cards with a picture, under the same section headings. Sliders and position grids show as buttons for now. An option that only applies to another choice shows or hides when the entry is opened, not while editing.
 - The configuration is the config file only: `config/craft/design-field.php`, or `config/design-field.php` as brought over from Craft 5. Token files stay in `config/designtokens/`.
-- The schema command is `php artisan design-field:schema` (same `--markdown`, `--agents` and `--check` options).
+- The console commands are `php artisan design-field:schema`, `design-field:check` and `design-field:usage`, with the same options as on Craft 5. The template check reads `resources/views` (or `templates`) and the PHP under `app/`; set `templateCheck` in the config file to change that.
 - Craft's MCP server reads and writes a Design value as a map of option handle => choice key.
 
 ### Removed
-- Not ported yet: the summary and collapsed views, the "Most used" list in long dropdowns, the settings page, presets, the Variant condition rule, the block preview, the template check and usage commands, and the starter stylesheet registration (`craft.designField.starterCss()` does nothing).
+- Not ported yet: the summary and collapsed views, the "Most used" list in long dropdowns, the settings page, presets, the Variant condition rule, the block preview, and the starter stylesheet registration (`craft.designField.starterCss()` does nothing).
 - The Craft 5 migration tools (`adopt`, `migrate`, `import`, Tidy up) stay on 1.x.
 
 ## 1.0.7 - 2026-10-29

@@ -10,7 +10,9 @@ namespace wmd\designfield;
 use CraftCms\Cms\Plugin\Plugin as BasePlugin;
 use CraftCms\Cms\Twig\Variables\CraftVariable;
 use Override;
+use wmd\designfield\console\CheckCommand;
 use wmd\designfield\console\SchemaCommand;
+use wmd\designfield\console\UsageCommand;
 use wmd\designfield\fields\Design;
 use wmd\designfield\services\Groups;
 use wmd\designfield\variables\DesignFieldVariable;
@@ -42,7 +44,7 @@ class Plugin extends BasePlugin
 
     protected array $fieldTypes = [Design::class];
 
-    protected array $commands = [SchemaCommand::class];
+    protected array $commands = [SchemaCommand::class, CheckCommand::class, UsageCommand::class];
 
     // Public Methods
     // =========================================================================

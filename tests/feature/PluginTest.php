@@ -113,4 +113,20 @@ final class PluginTest extends PluginTestCase
         self::assertSame(0, Artisan::call('design-field:schema'));
         self::assertStringContainsString('"tone"', Artisan::output());
     }
+
+    public function testTheCheckCommandFailsOnAProfileThatMatchesNoType(): void
+    {
+        // The test install has no entry type called blockCta.
+        self::assertSame(1, Artisan::call('design-field:check', ['--json' => true]));
+
+        $findings = json_decode(Artisan::output(), true);
+        self::assertSame('error', $findings[0]['level']);
+        self::assertStringContainsString('blockCta', $findings[0]['message']);
+    }
+
+    public function testTheUsageCommandRunsOnAnInstallWithoutDesignFields(): void
+    {
+        self::assertSame(0, Artisan::call('design-field:usage'));
+        self::assertStringContainsString('0 entry types', Artisan::output());
+    }
 }
