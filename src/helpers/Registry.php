@@ -7,7 +7,7 @@
 
 namespace wmd\designfield\helpers;
 
-use craft\helpers\Json;
+use CraftCms\Cms\Support\Json;
 use InvalidArgumentException;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;

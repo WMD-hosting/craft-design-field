@@ -1,5 +1,19 @@
 # Release Notes for Design Field
 
+## 2.0.0-alpha.1 - Unreleased
+
+> {warning} Design Field 2 is for Craft CMS 6. The control-panel input is not ported yet: the field is edited as JSON. Craft 5 sites stay on 1.x.
+
+### Changed
+- Requires Craft CMS 6.0.0-beta.1 and PHP 8.5.
+- The configuration is the config file only: `config/craft/design-field.php`, or `config/design-field.php` as brought over from Craft 5. Token files stay in `config/designtokens/`.
+- The schema command is `php artisan design-field:schema` (same `--markdown`, `--agents` and `--check` options).
+- Craft's MCP server reads and writes a Design value as a map of option handle => choice key.
+
+### Removed
+- Not ported yet: the option input (swatches, tiles, sliders, position grids), the settings page, presets, the Variant condition rule, the block preview, the template check and usage commands, and the starter stylesheet registration (`craft.designField.starterCss()` does nothing).
+- The Craft 5 migration tools (`adopt`, `migrate`, `import`, Tidy up) stay on 1.x.
+
 ## 1.0.7 - 2026-10-29
 
 ### Added
