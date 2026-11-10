@@ -70,6 +70,16 @@ final class PluginTest extends PluginTestCase
         self::assertSame('on', $field->normalizeValueFromRequest(['tone' => 'dark', 'border' => 'on'], null)->toArray()['border']);
     }
 
+    public function testTheEditorPostsASwitchAsTrueOrFalse(): void
+    {
+        $field = new Design(['handle' => 'design', 'profile' => 'blockCta']);
+
+        $on = $field->normalizeValueFromRequest(['tone' => 'dark', 'border' => true], null);
+        self::assertSame('on', $on->toArray()['border']);
+        self::assertSame([], $on->invalid());
+        self::assertSame('off', $field->normalizeValueFromRequest(['tone' => 'dark', 'border' => false], null)->toArray()['border']);
+    }
+
     public function testThePanelIsOneControlPerOption(): void
     {
         $field = new Design(['handle' => 'design', 'profile' => 'blockCta']);

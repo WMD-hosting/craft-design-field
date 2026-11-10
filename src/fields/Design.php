@@ -101,12 +101,20 @@ class Design extends Field
             $value = Json::decodeIfJson($value) ?? $value;
         }
 
-        // A switched-off toggle posts an empty value; it means the first option.
+        // The editor posts a switch as true/false (a plain form: its on key, or '' when off).
         if (is_array($value)) {
             foreach (app(Groups::class)->getRegistry()->groupsFor($this->profilesFor($element)) as $handle => $group) {
-                if ($group->input === Group::INPUT_TOGGLE && array_key_exists($handle, $value) && (string)$value[$handle] === '') {
-                    $value[$handle] = (string)array_key_first($group->options);
+                if ($group->input !== Group::INPUT_TOGGLE || count($group->options) !== 2 || !array_key_exists($handle, $value)) {
+                    continue;
                 }
+
+                [$off, $on] = array_map(strval(...), array_keys($group->options));
+
+                $value[$handle] = match ($value[$handle]) {
+                    true => $on,
+                    false, '' => $off,
+                    default => $value[$handle],
+                };
             }
         }
 
