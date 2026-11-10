@@ -44,6 +44,11 @@ class Plugin extends BasePlugin
 
     protected array $fieldTypes = [Design::class];
 
+    /**
+     * Loaded on control-panel pages: the larger look at a layout tile on hover and keyboard focus.
+     */
+    protected array $scripts = [__DIR__ . '/web/assets/tiles/dist/tile-preview.js' => 'js/tile-preview.js'];
+
     protected array $commands = [SchemaCommand::class, CheckCommand::class, UsageCommand::class];
 
     // Public Methods

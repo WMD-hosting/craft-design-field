@@ -36,6 +36,14 @@ use wmd\designfield\services\Groups;
  */
 class OptionControls
 {
+    // Const Properties
+    // =========================================================================
+
+    /**
+     * Ends the `src` of a layout picture, so the hover preview finds our tiles and no other card.
+     */
+    public const TILE_MARK = '#df-tile';
+
     // Public Methods
     // =========================================================================
 
@@ -265,7 +273,8 @@ class OptionControls
                 $picture = app(Groups::class)->picture($option['image']);
 
                 if ($picture !== null) {
-                    $choice['thumbnail'] = ['src' => $picture];
+                    // The fragment marks our tiles for the larger look on hover (tile-preview.js).
+                    $choice['thumbnail'] = ['src' => $picture . self::TILE_MARK];
                 }
             }
 

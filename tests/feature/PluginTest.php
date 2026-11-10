@@ -195,7 +195,7 @@ final class PluginTest extends PluginTestCase
         $control = $field->uiControl(new FieldContext('design', $field->normalizeValue([], null)));
         $options = $control->nestedUis([])[0]['ui']->nodes()[0]->getControl()->props()['options'];
 
-        self::assertSame(['src' => '/design-field/blockHero/_default.jpg?v=1700000000'], $options[0]['thumbnail']);
+        self::assertSame(['src' => '/design-field/blockHero/_default.jpg?v=1700000000#df-tile'], $options[0]['thumbnail']);
         self::assertArrayNotHasKey('thumbnail', $options[1]);
         self::assertArrayNotHasKey('thumbnail', $options[2]);
 

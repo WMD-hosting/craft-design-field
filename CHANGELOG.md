@@ -4,6 +4,9 @@
 
 > {warning} Design Field 2 is for Craft CMS 6 and not complete yet. Craft 5 sites stay on 1.x.
 
+### Added
+- A larger look at a layout tile: hovering it, or reaching it with the keyboard, shows the picture at its real size with the layout's name, above or below the tile's row. It opens after a short pause, closes at once, and never selects or saves. Touch has no hover, so a tap selects as before.
+
 ### Changed
 - Requires Craft CMS 6.0.0-beta.1 and PHP 8.5.
 - The Design panel is built on Craft's own controls, one per option: buttons, dropdowns, switches, radios with a colour, and cards with a picture, under the same section headings. An option that only applies to another choice shows or hides while editing, as Craft refreshes the form after each change.
