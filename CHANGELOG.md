@@ -19,7 +19,7 @@
 - Sliders and position grids show as buttons: Craft's range control is a plain number input with no named stops, and there is no grid control.
 - The configuration is the config file only: `config/craft/design-field.php`. Token files stay in `config/designtokens/`.
 - The console commands are `php artisan design-field:schema`, `design-field:check` and `design-field:usage`, with the same options as on Craft 5. The template check reads `resources/views` (or `templates`) and the PHP under `app/`; set `templateCheck` in the config file to change that.
-- Craft's MCP server reads and writes a Design value as a map of option handle => choice key.
+- Craft's MCP server reads and writes a Design value as a map of option handle => choice key, on the element itself and on blocks inside a Matrix field. `elements_field_schema` lists every option of the block with its choice keys; an unknown option or a key that is no choice of its option is refused with a message that names it. A read returns the options the block has, so what is read can be written back.
 
 ### Fixed
 - Saving a block with a switch failed with "“1” is not an option of …": the editor posts a switch as true or false, which now means its on and off choice.
