@@ -18,11 +18,11 @@ use wmd\designfield\services\Groups;
 use wmd\designfield\variables\DesignFieldVariable;
 
 /**
- * Design Field for Craft 6: the Design field type, the registry service and
- * `craft.designField`.
+ * Design Field for Craft 6: the Design field type with its panel and its Variant
+ * condition rule, the registry service and `craft.designField`.
  *
- * The control-panel input (swatches, tiles, sliders), the settings page and the
- * Variant condition rule are not ported yet; the field's input is a JSON textarea.
+ * Not ported yet: presets, the plugin settings page, the block preview and the
+ * starter stylesheet registration.
  *
  * @author WMD
  * @since 1.0.0

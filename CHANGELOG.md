@@ -6,6 +6,7 @@
 
 ### Added
 - A larger look at a layout tile: hovering it, or reaching it with the keyboard, shows the picture at its real size with the layout's name, above or below the tile's row. It opens after a short pause, closes at once, and never selects or saves. Touch has no hover, so a tap selects as before.
+- The condition rule Design → Variant is back, with the class name and stored config of Craft 5, so conditions in a project config written there work as they are. In a field layout, set a field's Entry Condition to the layouts that use it, and the field shows only while one of them is picked: Craft checks the condition on every refresh of the form, against the choice in the open editor. The rule offers the layouts of the entry type's profile (every profile's until a new entry type is saved), and only where a condition tests an element, not where one filters a query. A database that applied such conditions while the plugin had no rule dropped them from its stored layouts: run `php artisan craft:project-config:apply --force` once after updating.
 - Motion options (an entrance, a slide transition) show as cards again, as on Craft 5: each card's small stage plays its motion on hover and keyboard focus, and stays still for visitors who turn off animations.
 
 ### Fixed
@@ -25,7 +26,7 @@
 - Saving a block with a switch failed with "“1” is not an option of …": the editor posts a switch as true or false, which now means its on and off choice.
 
 ### Removed
-- Not ported yet: presets (Craft's controls have no action that sets several options at once), the "Most used" list in long dropdowns, the plugin settings page, the Variant condition rule, the block preview, and the starter stylesheet registration (`craft.designField.starterCss()` does nothing).
+- Not ported yet: presets (Craft's controls have no action that sets several options at once), the "Most used" list in long dropdowns, the plugin settings page, the block preview, and the starter stylesheet registration (`craft.designField.starterCss()` does nothing).
 - The Craft 5 migration tools (`adopt`, `migrate`, `import`, Tidy up) stay on 1.x.
 
 ## 1.0.7 - 2026-10-29

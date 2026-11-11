@@ -15,6 +15,7 @@ use CraftCms\Cms\Field\Contracts\McpOutputFieldInterface;
 use CraftCms\Cms\Field\Field;
 use CraftCms\Cms\Field\FieldContext;
 use CraftCms\Cms\Mcp\McpOutputContext;
+use CraftCms\Cms\Support\Facades\EntryTypes;
 use CraftCms\Cms\Support\Html;
 use CraftCms\Cms\Support\Json;
 use CraftCms\Cms\Support\Query;
@@ -30,6 +31,7 @@ use GraphQL\Type\Definition\Type;
 use Illuminate\Validation\Rule;
 use InvalidArgumentException;
 use Override;
+use wmd\designfield\fields\conditions\DesignVariantConditionRule;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
@@ -181,7 +183,7 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
     {
         $properties = [];
 
-        foreach ($this->schemaGroups() as $groups) {
+        foreach ($this->optionSets() as $groups) {
             foreach ($groups as $handle => $group) {
                 $keys = array_map(strval(...), array_keys($group->options));
 
@@ -356,6 +358,15 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
     }
 
     /**
+     * Lets field layout conditions ("Show when") test the chosen variant.
+     */
+    #[Override]
+    public function getElementConditionRuleType(): string
+    {
+        return DesignVariantConditionRule::class;
+    }
+
+    /**
      * Profile candidates, most specific first: the field setting, else `{ownerField}:{type}` then `{type}`.
      *
      * @return list<string>
@@ -387,16 +398,18 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
         return $candidates;
     }
 
-    // Private Methods
-    // =========================================================================
-
     /**
-     * The groups the input schema is built from: one set per profile the field can
-     * resolve to without an element at hand.
+     * The options the field has where no element is at hand (the input schema, a
+     * condition builder): one set per profile it can resolve to. That is its profile
+     * setting, else the entry type whose layout it sits in, with that type's profiles
+     * per owner field (`{ownerField}:{type}`) first.
      *
      * @return list<array<string,Group>>
+     *
+     * @author WMD
+     * @since 2.0.0
      */
-    private function schemaGroups(): array
+    public function optionSets(): array
     {
         $registry = app(Groups::class)->getRegistry();
 
@@ -404,23 +417,67 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
             return [$registry->groupsFor($this->profile)];
         }
 
-        $provider = $this->layoutElement?->getLayout()?->provider;
+        $type = $this->layoutType();
 
-        if (!$provider instanceof EntryType || $provider->handle === null) {
+        if ($type === null) {
             return [$registry->groupsFor(null)];
         }
 
         $sets = [];
 
         foreach ($registry->profileNames() as $name) {
-            if (str_ends_with($name, ":$provider->handle")) {
+            if (str_ends_with($name, ":$type")) {
                 $sets[] = $registry->groupsFor($name);
             }
         }
 
-        $sets[] = $registry->groupsFor($provider->handle);
+        $sets[] = $registry->groupsFor($type);
 
         return $sets;
+    }
+
+    /**
+     * Whether the field can tell which options it has without an element: it has a
+     * profile setting, or sits in the layout of a saved entry type.
+     *
+     * @return bool
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function knowsItsProfile(): bool
+    {
+        return $this->profile !== '' || $this->layoutType() !== null;
+    }
+
+    // Private Methods
+    // =========================================================================
+
+    /**
+     * Handle of the entry type whose layout the field sits in, null when it is in none
+     * or the type is not saved yet.
+     *
+     * A condition builder works on a copy of the layout that names no entry type and
+     * has another UID, so the type is then found by the UID of the field's own layout
+     * element, which the copy keeps.
+     */
+    private function layoutType(): ?string
+    {
+        $provider = $this->layoutElement?->getLayout()?->provider;
+
+        if ($provider instanceof EntryType) {
+            return $provider->handle;
+        }
+
+        $uid = $this->layoutElement?->uid;
+
+        if ($uid === null) {
+            return null;
+        }
+
+        return EntryTypes::getAllEntryTypes()
+            ->first(static fn(EntryType $type) => $type->getFieldLayout()->getElementByUid($uid) !== null)
+            ?->handle;
     }
 
     /**

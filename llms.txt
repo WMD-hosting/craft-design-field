@@ -8,6 +8,8 @@ GraphQL: JSON string of the same shape, read and write.
 Invalid keys are rejected on save (validation error "<key> is not an option of <group>").
 MCP (Craft's own server): elements_get returns {option: key} for the options the block has; elements_field_schema lists each option as a string enum of its keys (additionalProperties false); elements_update takes the same object on the block or nested in a Matrix field's input (entries[].{type}.design). Write back the whole object: missing options fall back to their defaults. Unknown option, key outside the enum or a non-object: refused, message names the option. json_encode(DesignValue) = the stored object.
 
+Condition rule (field layout "Show when"): wmd\designfield\fields\conditions\DesignVariantConditionRule, label "Design → Variant"; config {class, fieldUid, layoutElementUid, operator: in|ni|empty|notempty, values: [variant keys], uid}; matches the variant key of the element's Design value (unsaved choice included; `_default` when none picked; no variant group = empty); element conditions only, not query conditions.
+
 ## Twig
 craft.designField.of(block: Element|array|DesignValue, profile: ?string = null): DesignValue - Design field value, or old option fields / mock map read leniently
 craft.designField.value(keys: array, profile: ?string = null): DesignValue - strict value from a plain map

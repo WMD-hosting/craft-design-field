@@ -1,0 +1,96 @@
+# The field layout of the entry type headerSearch as the Craft 6 master stores it
+# (constructor6, config/craft/project/entryTypes/headerSearch--6983d1f3-….yaml), copied as it is:
+# a Design field and two fields that show for some of its variants only.
+fieldLayouts:
+  b3243f11-0ca8-4bc9-9a99-eea0a83eb8fc:
+    cardThumbAlignment: end
+    cardThumbStyle: normal
+    tabs:
+      - elementCondition: null
+        elements:
+          - dateAdded: null
+            editCondition: null
+            elementCondition: null
+            elementEditCondition: null
+            fieldUid: a40b6fea-c164-4493-8304-afd298e452e5 # Design
+            handle: null
+            instructions: null
+            instructionsPosition: before
+            label: null
+            oldFieldUid: null
+            required: false
+            tip: null
+            type: CraftCms\Cms\FieldLayout\LayoutElements\CustomField
+            uid: bb23d7f2-442c-46bb-ae6c-fd5139234c25
+            userCondition: null
+            warning: null
+            width: 100
+          - dateAdded: null
+            editCondition: null
+            elementCondition:
+              class: CraftCms\Cms\Entry\Conditions\EntryCondition
+              conditionRules:
+                operator: and
+                rules:
+                  - class: wmd\designfield\fields\conditions\DesignVariantConditionRule
+                    fieldUid: a40b6fea-c164-4493-8304-afd298e452e5 # Design
+                    layoutElementUid: bb23d7f2-442c-46bb-ae6c-fd5139234c25
+                    operator: in
+                    uid: 51e3044a-dcd6-459e-ad21-a82f73a421fe
+                    values:
+                      - panel
+                      - instant
+                      - bar
+              elementType: CraftCms\Cms\Entry\Elements\Entry
+              fieldContext: global
+              forQuery: false
+            elementEditCondition: null
+            fieldUid: 8e0423f5-5b3e-4690-bd51-24b1e681233d # Suggested searches
+            handle: null
+            instructions: 'Shown in this search box before the visitor types.'
+            instructionsPosition: before
+            label: null
+            oldFieldUid: null
+            required: false
+            tip: null
+            type: CraftCms\Cms\FieldLayout\LayoutElements\CustomField
+            uid: 99e91c5c-3206-4f61-9e51-b491731bfd6f
+            userCondition: null
+            warning: null
+            width: 100
+          - dateAdded: '2026-11-09T09:30:00+00:00'
+            editCondition: null
+            elementCondition:
+              class: CraftCms\Cms\Entry\Conditions\EntryCondition
+              conditionRules:
+                operator: and
+                rules:
+                  - class: wmd\designfield\fields\conditions\DesignVariantConditionRule
+                    fieldUid: a40b6fea-c164-4493-8304-afd298e452e5 # Design
+                    layoutElementUid: bb23d7f2-442c-46bb-ae6c-fd5139234c25
+                    operator: in
+                    uid: 3f1c9a7e-5b2d-4e8a-9c61-7d0e2b4a8f13
+                    values:
+                      - bar
+              elementType: CraftCms\Cms\Entry\Elements\Entry
+              fieldContext: global
+              forQuery: false
+            elementEditCondition: null
+            fieldUid: 5ab49a54-ad9d-4fb4-8053-6e61352af329 # Search placeholder
+            handle: null
+            instructions: 'Grey example text in the search bar’s field. Empty: “Što tražite?”.'
+            instructionsPosition: before
+            label: null
+            oldFieldUid: null
+            required: false
+            tip: null
+            type: CraftCms\Cms\FieldLayout\LayoutElements\CustomField
+            uid: 6a2e8d41-0c7f-4b39-a5d2-91e4f7c3b8a6
+            userCondition: null
+            warning: null
+            width: 100
+        icon: null
+        name: Content
+        type: content
+        uid: a175a892-55d8-4790-acc2-04890c7458b9
+        userCondition: null
