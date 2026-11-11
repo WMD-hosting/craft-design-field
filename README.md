@@ -314,6 +314,19 @@ The **Tidy up** tab is for sites that already have option fields, and for trimmi
 - **Brief for an agent**: **Copy brief** gives a prompt for Claude or another agent with your option fields, what Move would do with them, how converted fields are read, what the template check found and the commands that move the data, for Twig (any CSS framework) or headless sites reading GraphQL. Over plain HTTP, where browsers block the clipboard, the brief opens selected.
 - **Usage**: the report above, plus, on blocks with their own profile, **Make “X” the default** where every block picks the same choice (new blocks then start there), and **Hide** on a choice that block never uses (hover a choice). Hide only leaves the choice out of that block's picker: it stays a valid option, so saved blocks, presets and other blocks that share the option are unaffected, and a block that has it still sees it. The default and Auto are never hidden. Both are saved with the page's **Save**, in project config, and listed under **Changed on this page** with **Undo**.
 
+## Fields that show for some layouts only
+
+A block's other fields often belong to one or two of its layouts: a pricing block's "Included in every plan" strip is only there for the Plan cards layout. The Design field brings a condition rule for that, **Design → Variant**.
+
+In the entry type's field layout, open a field's settings and add the rule under **Visibility Conditions → Entry Condition**: *Design → Variant is one of* (or *is not one of*, *has a value*, *is empty*) and the layouts that use the field. The field then shows only while one of them is picked. Craft checks the condition each time it refreshes the form, against the choices in the open editor, so the form follows the layout as the editor picks it, before anything is saved.
+
+- The rule offers the layouts of the entry type's profile, in panel order. A new entry type is offered every profile's layouts until it is saved.
+- A block that never picked a layout is on the default one (`_default`). A block without layouts matches only *is empty*.
+- It is offered where a condition tests an element (field layout conditions), not where one filters a query (element sources, relation fields): the value is JSON and cannot be queried by.
+- The stored rule is `wmd\designfield\fields\conditions\DesignVariantConditionRule` with `operator` and `values`, the same as on Craft 5, so a project config written there keeps its conditions.
+
+A database that applied such a project config before the plugin had the rule dropped the conditions from its stored layouts (the YAML keeps them). Run `php artisan craft:project-config:apply --force` once after updating.
+
 ## Choices per entry
 
 Some choices only make sense for some entries: a "list the entries from this field" option should offer the fields the page has, not every field in the install. Before a panel is drawn, the Design field fires `Design::EVENT_DEFINE_PANEL_GROUPS` with the element being edited and its options; replace an option with `withHidden()` to leave choices out of the picker:
