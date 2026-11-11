@@ -49,6 +49,11 @@ class Plugin extends BasePlugin
      */
     protected array $scripts = [__DIR__ . '/web/assets/tiles/dist/tile-preview.js' => 'js/tile-preview.js'];
 
+    /**
+     * Loaded on control-panel pages: motion tiles that play their animation on hover.
+     */
+    protected array $styles = [__DIR__ . '/web/assets/tiles/dist/motion-tiles.css' => 'css/motion-tiles.css'];
+
     protected array $commands = [SchemaCommand::class, CheckCommand::class, UsageCommand::class];
 
     // Public Methods

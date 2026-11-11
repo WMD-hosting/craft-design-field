@@ -7,6 +7,7 @@
 
 namespace wmd\designfield\web;
 
+use CraftCms\Cms\Support\Html;
 use CraftCms\Cms\Ui\Contracts\Control;
 use CraftCms\Cms\Ui\Contracts\Node;
 use CraftCms\Cms\Ui\Controls\Choice;
@@ -18,6 +19,7 @@ use CraftCms\Cms\Ui\Nodes\Group as GroupNode;
 use CraftCms\Cms\Ui\Nodes\MarkdownContent;
 use CraftCms\Cms\Ui\Ui;
 use wmd\designfield\fields\Design;
+use wmd\designfield\helpers\Motion;
 use wmd\designfield\helpers\Sections;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
@@ -28,7 +30,7 @@ use wmd\designfield\services\Groups;
  * Craft's own kit (no control-panel JavaScript of ours).
  *
  * Each option's input style picks the control: buttons, a dropdown, a switch,
- * radios with a colour or a picture. Styles the kit has no control for yet
+ * radios with a colour, a picture or a playing motion. Styles the kit has no control for yet
  * (slider, position grid) fall back to buttons.
  *
  * @author WMD
@@ -233,8 +235,8 @@ class OptionControls
     public static function presentation(Group $group): ChoicePresentation
     {
         return match ($group->input) {
-            Group::INPUT_SELECT, Group::INPUT_CHIP, Group::INPUT_MOTION => ChoicePresentation::Select,
-            Group::INPUT_SWATCHES, Group::INPUT_TILES, Group::INPUT_RENDERED => ChoicePresentation::Radios,
+            Group::INPUT_SELECT, Group::INPUT_CHIP => ChoicePresentation::Select,
+            Group::INPUT_SWATCHES, Group::INPUT_TILES, Group::INPUT_RENDERED, Group::INPUT_MOTION => ChoicePresentation::Radios,
             default => count($group->options) > Group::BUTTONS_MAX && $group->input === Group::INPUT_BUTTONS
                 ? ChoicePresentation::Select
                 : ChoicePresentation::Buttons,
@@ -283,9 +285,38 @@ class OptionControls
                 }
             }
 
+            if ($group->input === Group::INPUT_MOTION) {
+                $choice['thumbnail'] = ['svg' => self::motionStage($option['motion']), 'aspectRatio' => '16 / 9'];
+            }
+
             $options[] = $choice;
         }
 
         return $options;
+    }
+
+    /**
+     * The picture of a motion choice: a small stage that plays the motion on hover and
+     * keyboard focus (motion-tiles.css). A choice without a motion stays still.
+     *
+     * @param string|null $motion The choice's preset, from Motion::resolve()
+     * @return string
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public static function motionStage(?string $motion): string
+    {
+        return Html::tag('span',
+            Html::tag('span', '', ['class' => 'df-m-a']) .
+            Html::tag('span', '<i></i><i></i>', ['class' => 'df-m-b']),
+            [
+                'class' => 'df-motion-stage',
+                'data' => [
+                    'df-motion' => $motion ?? '',
+                    'df-kind' => $motion !== null ? Motion::kind($motion) : null,
+                ],
+            ],
+        );
     }
 }

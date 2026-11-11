@@ -1,0 +1,61 @@
+/*
+ * Design Field: motion tiles.
+ *
+ * A motion option is a radio card whose picture is a small stage (OptionControls::motionStage()).
+ * Hovering the card, or reaching it with the keyboard, plays the choice's motion; a choice
+ * without one (None, Block default) stays still. Entrances move one card in; transitions
+ * move the outgoing slide (a) away while the next one (b) comes in.
+ */
+.df-motion-stage{pointer-events:none;position:relative;display:block;width:100%;height:100%;min-height:44px;overflow:hidden;border-radius:4px;background:var(--c-bg-subtle,var(--gray-050,#f3f4f6));perspective:160px}
+.df-m-a,.df-m-b{position:absolute;inset:16% 22%;border-radius:3px;backface-visibility:hidden}
+.df-m-a{background:var(--gray-300,#cbd5e1);opacity:0}
+.df-m-b{display:flex;flex-direction:column;justify-content:flex-end;gap:3px;padding:5px;background:var(--blue-300,#93c5fd)}
+.df-m-b i{display:block;height:3px;width:80%;border-radius:2px;background:#fff}
+.df-m-b i+i{width:55%}
+.df-motion-stage[data-df-kind=entrance] .df-m-a{display:none}
+:hover>[slot=icon] .df-m-a,:hover>[slot=icon] .df-m-b,:focus-within>[slot=icon] .df-m-a,:focus-within>[slot=icon] .df-m-b{animation-duration:1.6s;animation-timing-function:cubic-bezier(.3,.7,.4,1);animation-fill-mode:both;animation-iteration-count:infinite}
+:hover>[slot=icon] .df-m-a,:focus-within>[slot=icon] .df-m-a{animation-name:var(--df-a,none)}
+:hover>[slot=icon] .df-m-b,:focus-within>[slot=icon] .df-m-b{animation-name:var(--df-b,none)}
+.df-motion-stage[data-df-motion=fade]{--df-b:df-in-fade}
+.df-motion-stage[data-df-motion=fade-up]{--df-b:df-in-up}
+.df-motion-stage[data-df-motion=fade-down]{--df-b:df-in-down}
+.df-motion-stage[data-df-motion=from-left]{--df-b:df-in-left}
+.df-motion-stage[data-df-motion=from-right]{--df-b:df-in-right}
+.df-motion-stage[data-df-motion=zoom-in]{--df-b:df-in-zoom}
+.df-motion-stage[data-df-motion=zoom-out]{--df-b:df-in-zoom-out}
+.df-motion-stage[data-df-motion=flip-in]{--df-b:df-in-flip}
+.df-motion-stage[data-df-motion=blur-in]{--df-b:df-in-blur}
+.df-motion-stage[data-df-motion=slide]{--df-a:df-out-slide;--df-b:df-in-slide}
+.df-motion-stage[data-df-motion=crossfade]{--df-a:df-out-fade;--df-b:df-in-crossfade}
+.df-motion-stage[data-df-motion=fade-through]{--df-a:df-out-through;--df-b:df-in-through}
+.df-motion-stage[data-df-motion=cube]{--df-a:df-out-cube;--df-b:df-in-cube}
+.df-motion-stage[data-df-motion=coverflow]{--df-a:df-out-coverflow;--df-b:df-in-coverflow}
+.df-motion-stage[data-df-motion=flip]{--df-a:df-out-flip;--df-b:df-in-flip-card}
+.df-motion-stage[data-df-motion=cards]{--df-a:df-out-cards;--df-b:df-in-cards}
+.df-motion-stage[data-df-motion=creative]{--df-a:df-out-creative;--df-b:df-in-creative}
+@keyframes df-in-fade{0%{opacity:0}45%,100%{opacity:1}}
+@keyframes df-in-up{0%{opacity:0;transform:translateY(14px)}45%,100%{opacity:1;transform:none}}
+@keyframes df-in-down{0%{opacity:0;transform:translateY(-14px)}45%,100%{opacity:1;transform:none}}
+@keyframes df-in-left{0%{opacity:0;transform:translateX(-36px)}45%,100%{opacity:1;transform:none}}
+@keyframes df-in-right{0%{opacity:0;transform:translateX(36px)}45%,100%{opacity:1;transform:none}}
+@keyframes df-in-zoom{0%{opacity:0;transform:scale(.4)}45%,100%{opacity:1;transform:none}}
+@keyframes df-in-zoom-out{0%{opacity:0;transform:scale(1.6)}45%,100%{opacity:1;transform:none}}
+@keyframes df-in-flip{0%{opacity:0;transform:rotateX(85deg)}45%,100%{opacity:1;transform:none}}
+@keyframes df-in-blur{0%{opacity:0;filter:blur(6px)}45%,100%{opacity:1;filter:none}}
+@keyframes df-out-slide{0%{opacity:1;transform:none}45%,100%{opacity:1;transform:translateX(-140%)}}
+@keyframes df-in-slide{0%{transform:translateX(140%)}45%,100%{transform:none}}
+@keyframes df-out-fade{0%{opacity:1}45%,100%{opacity:0}}
+@keyframes df-in-crossfade{0%{opacity:0}45%,100%{opacity:1}}
+@keyframes df-out-through{0%{opacity:1}22%,100%{opacity:0}}
+@keyframes df-in-through{0%,22%{opacity:0}50%,100%{opacity:1}}
+@keyframes df-out-cube{0%{opacity:1;transform:none}45%,100%{opacity:1;transform:translateX(-50%) rotateY(-90deg) translateX(-50%)}}
+@keyframes df-in-cube{0%{transform:translateX(50%) rotateY(90deg) translateX(50%)}45%,100%{transform:none}}
+@keyframes df-out-coverflow{0%{opacity:1;transform:none}45%,100%{opacity:.7;transform:translateX(-85%) rotateY(50deg) scale(.75)}}
+@keyframes df-in-coverflow{0%{transform:translateX(85%) rotateY(-50deg) scale(.75)}45%,100%{transform:none}}
+@keyframes df-out-flip{0%{opacity:1;transform:none}45%,100%{opacity:1;transform:rotateY(180deg)}}
+@keyframes df-in-flip-card{0%{transform:rotateY(-180deg)}45%,100%{transform:none}}
+@keyframes df-out-cards{0%{opacity:1;transform:none}45%,100%{opacity:1;transform:translateX(-150%) rotate(-18deg)}}
+@keyframes df-in-cards{0%{transform:translate(5px,5px) scale(.9)}45%,100%{transform:none}}
+@keyframes df-out-creative{0%{opacity:1;transform:none}45%,100%{opacity:0;transform:translateX(-30%) scale(.6)}}
+@keyframes df-in-creative{0%{transform:translateX(120%) rotate(12deg)}45%,100%{transform:none}}
+@media (prefers-reduced-motion:reduce){.df-motion-stage *{animation:none!important}}
