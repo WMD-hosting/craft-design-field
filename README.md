@@ -273,12 +273,15 @@ The rest of the file is left as it is; run it again after changing the configura
 
 ### MCP servers
 
-Agents connected through an MCP server read and write a Design field as the same object it stores, `{"tone": "dark", "spacing": "loose", …}`:
+Agents connected to Craft's own MCP server read and write a Design field as an object of option handle => choice key, `{"tone": "dark", "spacing": "loose", …}`. Nothing to set up:
 
-- **MCP - All in one** (`rewi.sh/craft-mcp`): Design Field registers a field translator when the plugin is installed, so `get_entry` returns the object instead of the block's CSS classes.
-- **MCP** by stimmt (`stimmt/craft-mcp`): reads the stored value, nothing to set up.
+- `elements_field_schema` describes the field as an object with one property per option of that block, each limited to its choice keys, with its label and default. A switch is its two keys (the description says which one is on).
+- `elements_get` returns the choice of every option the block has. Blocks of a Matrix field come with the page when the field is asked for (`fields: ["pageBuilder"]`).
+- `elements_update` takes the same object, on the block itself or inside the Matrix field's input (`{"pageBuilder": {"entries": [{"blockCta": {"id": 12, "design": {…}}}]}}`; without `id` the block is added).
 
-To change options, send back the whole object you read with one key changed. A partial object resets the options it leaves out to their defaults. Unknown keys fail validation, so an agent gets an error, not a silent reset.
+To change options, send back the whole object you read with one key changed. A partial object resets the options it leaves out to their defaults. An option the block does not have, a key that is no choice of its option and a value that is not an object are refused before anything is saved, with a message that names the option.
+
+The schema is asked for without the element. With a profile per owner field (`pageBuilder:blockTeam` next to `blockTeam`), it allows what any of that type's profiles allows.
 
 ## Usage report
 

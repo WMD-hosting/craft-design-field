@@ -9,8 +9,12 @@ namespace wmd\designfield\fields;
 
 use CraftCms\Cms\Element\Concerns\NestedElement;
 use CraftCms\Cms\Element\Contracts\ElementInterface;
+use CraftCms\Cms\Entry\Data\EntryType;
+use CraftCms\Cms\Field\Contracts\InputSchemaFieldInterface;
+use CraftCms\Cms\Field\Contracts\McpOutputFieldInterface;
 use CraftCms\Cms\Field\Field;
 use CraftCms\Cms\Field\FieldContext;
+use CraftCms\Cms\Mcp\McpOutputContext;
 use CraftCms\Cms\Support\Html;
 use CraftCms\Cms\Support\Json;
 use CraftCms\Cms\Support\Query;
@@ -22,6 +26,7 @@ use CraftCms\Cms\Ui\Nodes\Field as UiField;
 use CraftCms\Cms\Ui\Ui;
 use CraftCms\Cms\Ui\UiContext;
 use Closure;
+use GraphQL\Type\Definition\Type;
 use Illuminate\Validation\Rule;
 use InvalidArgumentException;
 use Override;
@@ -37,10 +42,13 @@ use wmd\designfield\web\OptionControls;
  * Same storage as the Craft 5 plugin, so imported values keep working. The
  * input is one control per option, built on Craft's own UI kit.
  *
+ * Craft's MCP tools read the value as a map of the element's options and take
+ * the same map back, checked against {@see getInputSchema()}.
+ *
  * @author WMD
  * @since 2.0.0
  */
-class Design extends Field
+class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldInterface
 {
     // Const Properties
     // =========================================================================
@@ -155,6 +163,89 @@ class Design extends Field
     public function serializeValue(mixed $value, ?ElementInterface $element): mixed
     {
         return $value instanceof DesignValue ? $value->toArray() : $value;
+    }
+
+    /**
+     * The value an agent may write: one string per option, limited to that option's keys.
+     *
+     * Core asks without the element. A field with a profile setting describes that
+     * profile; otherwise the entry type whose layout the field sits in decides. A type
+     * that also has profiles per owner field (`{ownerField}:{type}`) gets every option
+     * and key any of them allows: an option only another owner's profile has is then
+     * stored, but the block does not use it.
+     *
+     * @return array<string,mixed>
+     */
+    #[Override]
+    public function getInputSchema(): array
+    {
+        $properties = [];
+
+        foreach ($this->schemaGroups() as $groups) {
+            foreach ($groups as $handle => $group) {
+                $keys = array_map(strval(...), array_keys($group->options));
+
+                if (!isset($properties[$handle])) {
+                    $properties[$handle] = array_filter([
+                        'type' => 'string',
+                        'title' => $group->label,
+                        'description' => self::optionNote($group),
+                        'enum' => $keys,
+                        'default' => $group->default,
+                    ], static fn(mixed $part) => $part !== '');
+
+                    continue;
+                }
+
+                $properties[$handle]['enum'] = array_values(array_unique([...$properties[$handle]['enum'], ...$keys]));
+
+                // Blocks disagree on the default: leave it out instead of naming one of them.
+                if (($properties[$handle]['default'] ?? $group->default) !== $group->default) {
+                    unset($properties[$handle]['default']);
+                }
+            }
+        }
+
+        return array_filter([
+            'type' => 'object',
+            'description' => 'Design options as option handle => choice key. Send the whole map: an option left out goes back to its default.',
+            'properties' => $properties,
+            'additionalProperties' => false,
+        ], static fn(mixed $part) => $part !== []);
+    }
+
+    /**
+     * The GraphQL API keeps taking the value as a JSON string. Inside another field's
+     * input (a Matrix block), MCP describes it by `inputSchema` and hands the map to
+     * {@see normalizeValue()} as given.
+     *
+     * @return array<string,mixed>
+     */
+    #[Override]
+    public function getContentGqlMutationArgumentType(): array
+    {
+        return [
+            'name' => $this->handle,
+            'type' => Type::string(),
+            'description' => $this->instructions,
+            'inputSchema' => $this->getInputSchema(),
+        ];
+    }
+
+    /**
+     * The value as MCP tools return it: the choice of every option the element has,
+     * which is exactly what {@see getInputSchema()} takes back. Keys stored for options
+     * the element no longer has are left out; a stored value that is no option map is
+     * returned as it is.
+     *
+     * @return array<string,string>|string
+     */
+    #[Override]
+    public function getMcpValue(mixed $value, ElementInterface $element, McpOutputContext $context): mixed
+    {
+        $value = $this->normalizeValue($value, $element);
+
+        return $value->rejected() ?? $value->keys();
     }
 
     #[Override]
@@ -294,5 +385,61 @@ class Design extends Field
         $candidates[] = $type;
 
         return $candidates;
+    }
+
+    // Private Methods
+    // =========================================================================
+
+    /**
+     * The groups the input schema is built from: one set per profile the field can
+     * resolve to without an element at hand.
+     *
+     * @return list<array<string,Group>>
+     */
+    private function schemaGroups(): array
+    {
+        $registry = app(Groups::class)->getRegistry();
+
+        if ($this->profile !== '') {
+            return [$registry->groupsFor($this->profile)];
+        }
+
+        $provider = $this->layoutElement?->getLayout()?->provider;
+
+        if (!$provider instanceof EntryType || $provider->handle === null) {
+            return [$registry->groupsFor(null)];
+        }
+
+        $sets = [];
+
+        foreach ($registry->profileNames() as $name) {
+            if (str_ends_with($name, ":$provider->handle")) {
+                $sets[] = $registry->groupsFor($name);
+            }
+        }
+
+        $sets[] = $registry->groupsFor($provider->handle);
+
+        return $sets;
+    }
+
+    /**
+     * What an agent cannot read off the keys: the option's instructions, which key of
+     * a switch is on, and the choices of other options it depends on.
+     */
+    private static function optionNote(Group $group): string
+    {
+        $notes = [$group->instructions];
+
+        if ($group->input === Group::INPUT_TOGGLE && count($group->options) === 2) {
+            [$off, $on] = array_map(strval(...), array_keys($group->options));
+            $notes[] = "A switch: `$off` is off, `$on` is on.";
+        }
+
+        foreach ($group->showIf as $other => $allowed) {
+            $notes[] = sprintf('Only applies when `%s` is %s.', $other, implode(' or ', array_map(static fn(mixed $key) => "`$key`", $allowed)));
+        }
+
+        return implode(' ', array_filter($notes));
     }
 }
