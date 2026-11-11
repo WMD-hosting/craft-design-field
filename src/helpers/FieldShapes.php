@@ -32,17 +32,17 @@ class FieldShapes
     /**
      * Craft's Dropdown, Radio Buttons, Button Group (and multi-select fields, which are skipped).
      */
-    public const OPTIONS = 'craft\fields\BaseOptionsField';
+    public const OPTIONS = 'CraftCms\Cms\Field\BaseOptionsField';
 
     /**
      * Craft's Lightswitch: an on/off chip.
      */
-    public const LIGHTSWITCH = 'craft\fields\Lightswitch';
+    public const LIGHTSWITCH = 'CraftCms\Cms\Field\Lightswitch';
 
     /**
      * Craft's Color field: swatches when it has a fixed palette.
      */
-    public const COLOR = 'craft\fields\Color';
+    public const COLOR = 'CraftCms\Cms\Field\Color';
 
     /**
      * Button Box's buttons (one choice from a set); its Stars, Width and Colours fields are not.
