@@ -205,6 +205,40 @@ final class PluginTest extends PluginTestCase
         rmdir($root);
     }
 
+    public function testTheConfigFileIsReadOncePerRequest(): void
+    {
+        $root = sys_get_temp_dir() . '/design-field-' . uniqid();
+        mkdir("$root/craft", 0777, true);
+        // Counts its own reads. Three layouts without a picture: the registry looks each one up.
+        file_put_contents("$root/craft/design-field.php", <<<'PHP'
+            <?php
+            $GLOBALS['designFieldConfigReads'] = ($GLOBALS['designFieldConfigReads'] ?? 0) + 1;
+
+            return ['profiles' => ['blockHero' => ['variant' => ['options' => [
+                '_default' => ['label' => 'Split'],
+                'wide' => ['label' => 'Wide'],
+                'stack' => ['label' => 'Stack'],
+            ]]]]];
+            PHP);
+        $configPath = $this->app->configPath();
+        $this->app->useConfigPath($root);
+        $GLOBALS['designFieldConfigReads'] = 0;
+
+        try {
+            $groups = new Groups();
+            $groups->getRegistry();
+            $groups->config();
+
+            self::assertSame(1, $GLOBALS['designFieldConfigReads']);
+        } finally {
+            $this->app->useConfigPath($configPath);
+            unset($GLOBALS['designFieldConfigReads']);
+            unlink("$root/craft/design-field.php");
+            rmdir("$root/craft");
+            rmdir($root);
+        }
+    }
+
     public function testAValueThatIsNoOptionMapIsShownAsText(): void
     {
         $field = new Design(['handle' => 'design', 'profile' => 'blockCta']);
