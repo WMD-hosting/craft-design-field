@@ -10,6 +10,7 @@
 - Motion options (an entrance, a slide transition) show as cards again, as on Craft 5: each card's small stage plays its motion on hover and keyboard focus, and stays still for visitors who turn off animations.
 
 ### Fixed
+- The config file is read once per request. Building the options read it again for every layout picture it looked up (about 65 times on a site with many blocks), which cost about 125 ms on each request that shows a Design value, and memory that a long-running process such as a test suite never got back.
 - A section whose options all wait for another choice (Colour & style and Spacing on an image block with the caption layout) no longer shows its heading over an empty area; it comes back with its options when the layout changes.
 
 ### Changed

@@ -38,6 +38,11 @@ class Groups
 
     private ?Registry $registry = null;
 
+    /**
+     * @var array<string,mixed>|null The config file's array, read once per request
+     */
+    private ?array $config = null;
+
     // Public Methods
     // =========================================================================
 
@@ -128,7 +133,10 @@ class Groups
      * The config file's array with the defaults filled in.
      *
      * The file is read here rather than through Laravel's `config()`, which would also
-     * load `design-field.generated.php` beside it as a config of its own.
+     * load `design-field.generated.php` beside it as a config of its own. It is read once
+     * per request: building the registry asks for `tileImages` once per layout, and every
+     * run of the file costs its full time again, plus memory that PHP keeps until the
+     * process ends for each closure the file declares.
      *
      * @return array<string,mixed>
      *
@@ -137,10 +145,14 @@ class Groups
      */
     public function config(): array
     {
+        if ($this->config !== null) {
+            return $this->config;
+        }
+
         $path = config_path(self::CONFIG_FILE);
         $config = is_file($path) ? require $path : [];
 
-        return $config + [
+        return $this->config = $config + [
             'groups' => [],
             'profiles' => [],
             'fieldMap' => [],
