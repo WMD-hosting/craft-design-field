@@ -22,10 +22,12 @@ Token.key, Token.label, Token.isDefault, Token.isAuto(): bool, Token.keyOr(fallb
 
 ## Config (config/design-field.php or Settings > Plugins > Design Field)
 fieldMap: old field handle => group handle
-groups.<handle>: label, instructions, tokens | options, default, auto, aliases, input (buttons|select|swatches|tiles|position|slider|toggle; toggle needs exactly two options, off first), iconsOnly, columns, showIf {group: [keys]} | variants [keys], optionMeta {key: {label, icon, swatch, image, description, sample}}
+groups.<handle>: label, instructions, tokens | options, default, auto, aliases, input (buttons|select|swatches|tiles|position|slider|toggle; toggle needs exactly two options, off first), iconsOnly, columns, showIf {group: [keys]} | variants [keys], optionMeta {key: {label, icon, swatch, swatchText, percent, image, description, sample}}
 presets.<profile|*>.<label>: {group: key, ...} - one-click sets of choices above a block's options; profile presets first, then `*`; only groups the block has are applied; nothing extra is stored; CP table presetRows (profile, name, choices `group=key, group=key`; older one-choice rows still read) unless the config file sets presets
 settings page: usage report on request (?usage=1, helpers/UsageReport::summarize shared with the console), configuration check (services/Health::check) and a live preview of any profile's panel (?preview=<profile>; inputs carry form="df-preview" so they are never saved)
-option: key => "classes" | {label, icon, swatch, image, description, sample (CSS font-size for an "Aa" button), <part>: "classes"}
+option: key => "classes" | {label, icon (Craft icon name or inline SVG), swatch (CSS colour/gradient; "a|b" splits the chip), swatchText (text colour, drawn as "Aa" on the swatch), percent (width bar: 75, 75%, 0.75), image, description, sample (CSS font-size for an "Aa" button), <part>: "classes"}
+position: cells `columns` to a row; keys naming a set lay themselves out (top-left..bottom-right nine-point grid, four corners, left/center/right row, top/middle/bottom column)
+slider: Craft range control; the editor posts {"__slider": {handle: place}}, stored as the option key
 profiles.<name>: list of group handles; 'group' => 'key' sets the default; 'group' => [overrides] adjusts a shared group; 'group' => [options|tokens ...] defines a local group
 groupOverrides.<group>: settings merged into a group everywhere (survives regeneration)
 profileOverrides.<profile>.<group>: settings for one profile only

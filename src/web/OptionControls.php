@@ -12,6 +12,7 @@ use CraftCms\Cms\Ui\Contracts\Control;
 use CraftCms\Cms\Ui\Contracts\Node;
 use CraftCms\Cms\Ui\Controls\Choice;
 use CraftCms\Cms\Ui\Controls\Lightswitch;
+use CraftCms\Cms\Ui\Controls\Range;
 use CraftCms\Cms\Ui\Enums\ChoicePresentation;
 use CraftCms\Cms\Ui\Enums\FieldWidth;
 use CraftCms\Cms\Ui\Nodes\Field;
@@ -20,6 +21,8 @@ use CraftCms\Cms\Ui\Nodes\MarkdownContent;
 use CraftCms\Cms\Ui\Ui;
 use wmd\designfield\fields\Design;
 use wmd\designfield\helpers\Motion;
+use wmd\designfield\helpers\Positions;
+use wmd\designfield\helpers\Registry;
 use wmd\designfield\helpers\Sections;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
@@ -29,9 +32,10 @@ use wmd\designfield\services\Groups;
  * The Design panel as a Craft UI: one field per option, on the controls of
  * Craft's own kit (no control-panel JavaScript of ours).
  *
- * Each option's input style picks the control: buttons, a dropdown, a switch,
- * radios with a colour, a picture or a playing motion. Styles the kit has no control for yet
- * (slider, position grid) fall back to buttons.
+ * Each option's input style picks the control: buttons, a dropdown, a switch, a slider,
+ * a grid of position cells, colour chips, or cards with a picture or a playing motion.
+ * What a button shows besides its name (a drawn icon, a chip, an "Aa" sample, a width
+ * bar) is label markup from {@see OptionLabels}, laid out by option-looks.css.
  *
  * @author WMD
  * @since 2.0.0
@@ -213,6 +217,21 @@ class OptionControls
                 ->value($selected === $on);
         }
 
+        // A slider posts the choice's place on the scale, under its own key (Registry::SLIDER_KEY)
+        // so it is never read as a key itself. A choice the slider leaves out keeps buttons.
+        $steps = $group->sliderKeys();
+        $step = array_search($selected, $steps, true);
+
+        if ($group->input === Group::INPUT_SLIDER && $step !== false && count($steps) >= 2) {
+            return Range::make([Registry::SLIDER_KEY, $group->handle])
+                ->min(0)
+                ->max(count($steps) - 1)
+                ->step(1)
+                ->suffix($group->options[$selected]['label'])
+                ->reactive()
+                ->value($step);
+        }
+
         $control = Choice::make($group->handle)
             ->options(self::options($group, $selected))
             ->presentation(self::presentation($group))
@@ -236,7 +255,8 @@ class OptionControls
     {
         return match ($group->input) {
             Group::INPUT_SELECT, Group::INPUT_CHIP => ChoicePresentation::Select,
-            Group::INPUT_SWATCHES, Group::INPUT_TILES, Group::INPUT_RENDERED, Group::INPUT_MOTION => ChoicePresentation::Radios,
+            Group::INPUT_TILES, Group::INPUT_RENDERED, Group::INPUT_MOTION => ChoicePresentation::Radios,
+            Group::INPUT_SWATCHES, Group::INPUT_POSITION, Group::INPUT_SLIDER => ChoicePresentation::Buttons,
             default => count($group->options) > Group::BUTTONS_MAX && $group->input === Group::INPUT_BUTTONS
                 ? ChoicePresentation::Select
                 : ChoicePresentation::Buttons,
@@ -257,22 +277,25 @@ class OptionControls
     public static function options(Group $group, string $selected): array
     {
         $options = [];
+        $grid = $group->input === Group::INPUT_POSITION ? self::grid($group) : null;
 
-        foreach ($group->options as $key => $option) {
+        foreach ($grid['order'] ?? array_keys($group->options) as $key) {
             $key = (string)$key;
+            $option = $group->options[$key];
 
             if ($key !== $selected && in_array($key, $group->hidden, true)) {
                 continue;
             }
 
             $choice = ['label' => $option['label'], 'value' => $key];
+            $labelHtml = $grid !== null
+                ? self::cellHtml($group, $key, $grid)
+                : self::labelHtml($group, $option);
 
-            if ($option['icon'] !== null) {
+            if ($labelHtml !== null) {
+                $choice['labelHtml'] = $labelHtml;
+            } elseif ($option['icon'] !== null && !OptionLabels::isSvg($option['icon'])) {
                 $choice['icon'] = $option['icon'];
-            }
-
-            if ($group->input === Group::INPUT_SWATCHES && $option['swatch'] !== null) {
-                $choice['color'] = $option['swatch'];
             }
 
             // A picture whose file is missing would show as a broken image: leave it out.
@@ -293,6 +316,48 @@ class OptionControls
         }
 
         return $options;
+    }
+
+    /**
+     * How a position option lays out its cells: cells per row, the order (the text
+     * choice first, then the cells in grid order) and where a one-line set's cells sit.
+     *
+     * @param Group $group
+     * @return array{columns:int,order:list<string>,places:array<string,string>}
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public static function grid(Group $group): array
+    {
+        $keys = array_map('strval', array_keys($group->options));
+        $text = array_values(array_filter($keys, static fn(string $key) => self::isTextCell($key)));
+        $cells = array_values(array_diff($keys, $text));
+        $match = Positions::match($cells);
+
+        if ($match === null) {
+            return ['columns' => max(0, $group->columns), 'order' => [...$text, ...$cells], 'places' => []];
+        }
+
+        $places = [];
+
+        foreach ($match['cells'] as $key => [$row, $column]) {
+            $place = match ($match['set']) {
+                Positions::ROW => "row-$column",
+                Positions::COLUMN => "column-$row",
+                default => null,
+            };
+
+            if ($place !== null) {
+                $places[$key] = $place;
+            }
+        }
+
+        return [
+            'columns' => $group->columns > 0 ? $group->columns : $match['columns'],
+            'order' => [...$text, ...array_map('strval', array_keys($match['cells']))],
+            'places' => $places,
+        ];
     }
 
     /**
@@ -318,5 +383,77 @@ class OptionControls
                 ],
             ],
         );
+    }
+
+    // Private Methods
+    // =========================================================================
+
+    /**
+     * Whether a position choice is the text cell above the grid (`auto`: Block default).
+     *
+     * @param string $key
+     * @return bool
+     */
+    private static function isTextCell(string $key): bool
+    {
+        return $key === Group::AUTO;
+    }
+
+    /**
+     * The label of a position cell.
+     *
+     * @param Group $group
+     * @param string $key
+     * @param array{columns:int,order:list<string>,places:array<string,string>} $grid
+     * @return string
+     */
+    private static function cellHtml(Group $group, string $key, array $grid): string
+    {
+        $option = $group->options[$key];
+
+        if (self::isTextCell($key)) {
+            return OptionLabels::textCell($option['label'], $grid['columns']);
+        }
+
+        return OptionLabels::cell($option['label'], $grid['columns'], $option['icon'], $grid['places'][$key] ?? null);
+    }
+
+    /**
+     * What a button shows besides its name, or null for the kit's own label (and icon).
+     * Plain labels (`textOnly`) and the cards (tiles, motion, rendered) keep theirs.
+     *
+     * @param Group $group
+     * @param array{label:string,icon:?string,swatch:?string,sample:?string,percent:?string,swatchText:?string} $option
+     * @return ?string
+     */
+    private static function labelHtml(Group $group, array $option): ?string
+    {
+        if ($group->textOnly || in_array($group->input, [Group::INPUT_TILES, Group::INPUT_RENDERED, Group::INPUT_MOTION, Group::INPUT_SELECT, Group::INPUT_CHIP], true)) {
+            return null;
+        }
+
+        if ($group->input === Group::INPUT_SWATCHES) {
+            $chip = $option['swatch'] !== null ? OptionLabels::swatch($option['swatch'], $option['swatchText']) : null;
+
+            return $chip !== null ? OptionLabels::label($chip, $option['label'], false) : null;
+        }
+
+        $sample = $option['sample'] !== null ? OptionLabels::sample($option['sample']) : null;
+
+        if ($sample !== null) {
+            return OptionLabels::label($sample, $option['label'], false);
+        }
+
+        $percent = OptionLabels::percent($option['percent']);
+
+        if ($percent !== null) {
+            return OptionLabels::label(OptionLabels::bar($percent), $option['label'], !$group->iconsOnly);
+        }
+
+        if (OptionLabels::isSvg($option['icon'])) {
+            return OptionLabels::label(OptionLabels::glyph((string)$option['icon']), $option['label'], !$group->iconsOnly);
+        }
+
+        return null;
     }
 }

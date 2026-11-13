@@ -8,6 +8,11 @@
 - A larger look at a layout tile: hovering it, or reaching it with the keyboard, shows the picture at its real size with the layout's name, above or below the tile's row. It opens after a short pause, closes at once, and never selects or saves. Touch has no hover, so a tap selects as before.
 - The condition rule Design → Variant is back, with the class name and stored config of Craft 5, so conditions in a project config written there work as they are. In a field layout, set a field's Entry Condition to the layouts that use it, and the field shows only while one of them is picked: Craft checks the condition on every refresh of the form, against the choice in the open editor. The rule offers the layouts of the entry type's profile (every profile's until a new entry type is saved), and only where a condition tests an element, not where one filters a query. A database that applied such conditions while the plugin had no rule dropped them from its stored layouts: run `php artisan craft:project-config:apply --force` once after updating.
 - Motion options (an entrance, a slide transition) show as cards again, as on Craft 5: each card's small stage plays its motion on hover and keyboard focus, and stays still for visitors who turn off animations.
+- Sliders are back: a range over the options in order, with the choice's name beside it. The editor posts the choice's place on the scale (under `__slider`), and the field stores its key.
+- Position grids are back: square cells, `columns` to a row, with Auto on its own row above them. Keys that name a position set lay themselves out without `columns`: a nine-point grid (`top-left` ... `bottom-right`), the four corners, a row (`left`, `center`, `right`, each cell drawing where it sits) or a column (`top`, `middle`, `bottom`).
+- Width bars: an option's `percent` (`75`, `75%`, `0.75`) draws a bar filled that far beside its name, whatever the stored key is.
+- Two-colour swatches: `swatchText` draws "Aa" in that colour on the swatch, and two colours joined by `|` split the chip on the diagonal.
+- "Aa" samples (`sample`) show at their font size in the button again, and count as narrow buttons when the field picks buttons or a dropdown.
 
 ### Fixed
 - The config file is read once per request. Building the options read it again for every layout picture it looked up (about 65 times on a site with many blocks), which cost about 125 ms on each request that shows a Design value, and memory that a long-running process such as a test suite never got back.
@@ -15,15 +20,16 @@
 
 ### Changed
 - Requires Craft CMS 6.0.0-beta.1 and PHP 8.5.
-- The Design panel is built on Craft's own controls, one per option: buttons, dropdowns, switches, radios with a colour, and cards with a picture, under the same section headings. An option that only applies to another choice shows or hides while editing, as Craft refreshes the form after each change.
+- The Design panel is built on Craft's own controls, one per option: buttons, dropdowns, switches, sliders, position grids, colour chips, and cards with a picture, under the same section headings. An option that only applies to another choice shows or hides while editing, as Craft refreshes the form after each change.
 - The field settings are back: show the options as a panel, as a summary (a line saying what is set, the options behind Edit) or collapsed (a closed section that says how many options changed); lay them out in sections, sections side by side, or inline; and which block's options the field shows. A profile's `'_view'` still replaces the field's setting, and a new element starts open.
 - Layout pictures come from the web root again (`tileImages` in the config file, `/design-field/{type}/{key}.jpg` by default). A picture whose file is missing is left out instead of showing as a broken image.
-- Sliders and position grids show as buttons: Craft's range control is a plain number input with no named stops, and there is no grid control.
+- Swatches are a row of colour chips with the name on hover, as on Craft 5, instead of a list of radios with a small dot.
 - The configuration is the config file only: `config/craft/design-field.php`. Token files stay in `config/designtokens/`.
 - The console commands are `php artisan design-field:schema`, `design-field:check` and `design-field:usage`, with the same options as on Craft 5. The template check reads `resources/views` (or `templates`) and the PHP under `app/`; set `templateCheck` in the config file to change that.
 - Craft's MCP server reads and writes a Design value as a map of option handle => choice key, on the element itself and on blocks inside a Matrix field. `elements_field_schema` lists every option of the block with its choice keys; an unknown option or a key that is no choice of its option is refused with a message that names it. A read returns the options the block has, so what is read can be written back.
 
 ### Fixed
+- Icons given as inline SVG (the column bars and ratio frames of the default config) showed nothing: Craft's icons take names. They are drawn in the button now, sanitised.
 - Saving a block with a switch failed with "“1” is not an option of …": the editor posts a switch as true or false, which now means its on and off choice.
 
 ### Removed

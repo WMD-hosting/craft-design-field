@@ -142,6 +142,7 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
         }
 
         // The editor posts a switch as true/false (a plain form: its on key, or '' when off).
+        // Sliders come as places on their scale (Registry::SLIDER_KEY), mapped by the registry.
         if (is_array($value)) {
             foreach (app(Groups::class)->getRegistry()->groupsFor($this->profilesFor($element)) as $handle => $group) {
                 if ($group->input !== Group::INPUT_TOGGLE || count($group->options) !== 2 || !array_key_exists($handle, $value)) {

@@ -51,6 +51,33 @@ final class GroupStylesTest extends TestCase
         self::assertNotContains('position', $this->group(['tl' => 'x', 'tr' => 'y'])->supportedInputs());
     }
 
+    public function testPositionFitsKeysThatNameAPositionSet(): void
+    {
+        $row = $this->group(['start' => 'text-left', 'center' => 'text-center', 'end' => 'text-right'], ['auto' => 'Auto']);
+
+        self::assertContains('position', $row->supportedInputs(), 'left, center and right lay themselves out');
+        self::assertNotContains('position', $this->group(['sm' => 'a', 'md' => 'b', 'lg' => 'c'])->supportedInputs());
+    }
+
+    public function testSliderKeysLeaveOutHiddenChoices(): void
+    {
+        $group = $this->group(['a' => 'x', 'b' => 'y', 'c' => 'z'], ['auto' => 'Auto'])->withHidden(['b']);
+
+        self::assertSame(['auto', 'a', 'c'], $group->sliderKeys());
+    }
+
+    public function testSamplesAndWidthBarsCountTheirOwnWidthForButtons(): void
+    {
+        $sizes = ['xs' => ['sample' => '12px', 'value' => 'a'], 'sm' => ['sample' => '14px', 'value' => 'b'], 'md' => ['sample' => '16px', 'value' => 'c'],
+            'lg' => ['sample' => '20px', 'value' => 'd'], 'xl' => ['sample' => '24px', 'value' => 'e'], '2xl' => ['sample' => '30px', 'value' => 'f']];
+
+        self::assertSame('buttons', $this->group($sizes)->input, 'six "Aa" buttons fit where six names would not');
+
+        $widths = ['half' => ['percent' => '50', 'value' => 'a'], 'most' => ['percent' => '75', 'value' => 'b'], 'full' => ['percent' => '100', 'value' => 'c']];
+        self::assertSame('buttons', $this->group($widths)->input);
+        self::assertSame('select', $this->group($widths + ['wider' => ['percent' => '90', 'value' => 'd', 'label' => 'Wider than the page'], 'odd' => ['percent' => '60', 'value' => 'e', 'label' => 'Something else']])->input);
+    }
+
     public function testPositionAlsoFitsARowOfIcons(): void
     {
         $icons = $this->group(['1' => ['icon' => 'a', 'value' => 'x'], '2' => ['icon' => 'b', 'value' => 'y']], ['auto' => 'Block default']);

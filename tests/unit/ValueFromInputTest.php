@@ -60,4 +60,18 @@ final class ValueFromInputTest extends TestCase
         self::assertSame('bg-white py-4', (string)$value);
         self::assertSame([], $value->invalid());
     }
+
+    public function testASliderPostedAsItsPlaceOnTheScaleBecomesItsKey(): void
+    {
+        $registry = $this->registry();
+
+        $value = $registry->valueFromInput(['tone' => 'dark', Registry::SLIDER_KEY => ['spacing' => '1']], 'blockCta');
+        self::assertSame(['tone' => 'dark', 'spacing' => 'loose'], $value->toArray());
+        self::assertSame([], $value->invalid());
+
+        // Off the scale, not a number, or an option the profile lacks: left as it was.
+        self::assertSame('tight', $registry->valueFromInput([Registry::SLIDER_KEY => ['spacing' => '5']], 'blockCta')->toArray()['spacing']);
+        self::assertSame('tight', $registry->valueFromInput([Registry::SLIDER_KEY => ['spacing' => 'x']], 'blockCta')->toArray()['spacing']);
+        self::assertSame([], $registry->valueFromInput([Registry::SLIDER_KEY => ['gone' => '1']], 'blockCta')->invalid());
+    }
 }
