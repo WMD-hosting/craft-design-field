@@ -46,13 +46,16 @@ craft-radio-group:has(.df-cell) craft-radio[data-button]:has(.df-cell:not(.df-ce
 craft-radio-group:has(.df-cell) craft-radio[data-button]:has(.df-cell--gap){visibility:hidden}
 craft-radio-group:has(.df-cell--label){max-width:none!important}
 craft-radio-group:has(.df-cell) craft-radio[data-button][checked]{border-color:var(--c-color-neutral-border-loud)}
-craft-radio-group:has(.df-cell:not([data-df-columns="0"])) craft-radio[data-button]:has(.df-cell--text){flex:1 0 100%;min-width:max-content}
-craft-radio-group:has(.df-cell[data-df-columns="1"]){max-width:calc(1 * var(--df-cell) + 1px)}
+/* Auto spans the grid and wraps a long name, so it never widens the grid (wider, more cells would fit a row). */
+craft-radio-group:has(.df-cell:not([data-df-columns="0"])) craft-radio[data-button]:has(.df-cell--text){flex:1 0 100%;min-width:0;white-space:normal;text-align:center}
 craft-radio-group:has(.df-cell[data-df-columns="2"]){max-width:calc(2 * var(--df-cell) + 1 * var(--df-gap) + 1px)}
 craft-radio-group:has(.df-cell[data-df-columns="3"]){max-width:calc(3 * var(--df-cell) + 2 * var(--df-gap) + 1px)}
 craft-radio-group:has(.df-cell[data-df-columns="4"]){max-width:calc(4 * var(--df-cell) + 3 * var(--df-gap) + 1px)}
 craft-radio-group:has(.df-cell[data-df-columns="5"]){max-width:calc(5 * var(--df-cell) + 4 * var(--df-gap) + 1px)}
 craft-radio-group:has(.df-cell[data-df-columns="6"]){max-width:calc(6 * var(--df-cell) + 5 * var(--df-gap) + 1px)}
+/* One column (top, middle, bottom): each cell is a full row, as wide as Auto. */
+craft-radio-group:has(.df-cell[data-df-columns="1"]){max-width:10rem}
+craft-radio-group:has(.df-cell[data-df-columns="1"]) craft-radio[data-button]:has(.df-cell:not(.df-cell--text)){width:auto;flex:1 0 100%}
 
 /*
  * Sliders (OptionControls posts them under [__slider]): Craft's range input clears the
