@@ -19,6 +19,14 @@
 .df-swatch--empty{background:repeating-conic-gradient(#d4d4d8 0 25%,#fff 0 50%) 0 0/8px 8px!important}
 craft-radio[data-button]:has(.df-label--drawn){padding-inline:5px}
 
+/*
+ * Layout pictures (cards whose picture carries #df-tile): Craft draws a card's picture
+ * 60px high, so a 480x338 layout shot showed 85px wide. At 103px high it is 146px wide,
+ * as in the Craft 5 picker. The group sizes its row from the card's max size, so all
+ * three of Craft's card sizes are set here, on the group, and the cards inherit them.
+ */
+craft-radio-group:has(craft-radio[data-card]>img[slot=icon][src$="#df-tile"]){--c-radio-card-min-size:172px;--c-radio-card-max-size:172px;--c-radio-card-icon-size:103px}
+
 /* Width bars: filled to the choice's width. */
 .df-bar{display:inline-block;flex:none;width:28px;height:8px;overflow:hidden;border-radius:2px;background:color-mix(in srgb,currentColor 20%,transparent)}
 .df-bar-fill{display:block;height:100%;border-radius:2px;background:currentColor}

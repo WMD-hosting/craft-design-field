@@ -11,14 +11,23 @@ use wmd\designfield\models\Group;
 
 /**
  * Arranges a panel's options under their section headings (Layout, Colour, Spacing…):
- * options without a section first, then each section in the order its first option
- * comes. Without any section, or inline, the panel stays one plain list.
+ * the layout's section first with the layout at its top, then options without a section,
+ * then each section in the order its first option comes. Without any section, or inline,
+ * the panel stays one plain list.
  *
  * @author WMD
  * @since 1.0.0
  */
 class Sections
 {
+    // Const Properties
+    // =========================================================================
+
+    /**
+     * The layout option: picked first, since most other options show only for some layouts.
+     */
+    private const LAYOUT = 'variant';
+
     // Public Methods
     // =========================================================================
 
@@ -33,12 +42,22 @@ class Sections
     public static function arrange(array $groups, bool $headings = true): array
     {
         $sections = [];
+        $layout = isset($groups[self::LAYOUT]) ? $groups[self::LAYOUT]->section : null;
 
+        if ($layout !== null) {
+            $sections[$layout] = [self::LAYOUT];
+        }
         foreach ($groups as $handle => $group) {
-            $sections[$group->section][] = (string)$handle;
+            if ((string)$handle !== self::LAYOUT) {
+                $sections[$group->section][] = (string)$handle;
+            }
         }
 
         $arranged = [];
+        if ($layout !== null) {
+            $arranged[] = ['label' => $layout, 'groups' => $sections[$layout]];
+            unset($sections[$layout]);
+        }
         if (isset($sections[''])) {
             $arranged[] = ['label' => '', 'groups' => $sections['']];
             unset($sections['']);
