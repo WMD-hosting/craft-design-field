@@ -47,6 +47,24 @@ final class SectionsTest extends TestCase
         ], Sections::arrange($groups));
     }
 
+    public function testTheLayoutsSectionComesFirstWithTheLayoutAtItsTop(): void
+    {
+        $groups = $this->registry(['sections' => ['spacing' => 'Layout', 'variant' => 'Layout']])->groupsFor('blockCta');
+        // spacing comes before variant in this order, as an option of the profile may.
+        $groups = ['spacing' => $groups['spacing']] + $groups;
+
+        self::assertSame([
+            ['label' => 'Layout', 'groups' => ['variant', 'spacing']],
+            ['label' => '', 'groups' => ['motion']],
+            ['label' => 'Colour', 'groups' => ['tone']],
+        ], Sections::arrange($groups), 'the layout is picked first: most other options follow it');
+
+        self::assertSame(
+            [['label' => '', 'groups' => ['variant', 'spacing', 'motion', 'tone']]],
+            Sections::arrange($groups, false),
+        );
+    }
+
     public function testInlineIsOneListInSectionOrder(): void
     {
         $groups = $this->registry(['sections' => ['motion' => 'Colour']])->groupsFor('blockCta');
