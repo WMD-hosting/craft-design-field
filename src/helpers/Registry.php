@@ -44,7 +44,13 @@ class Registry
     /**
      * Group handles that would shadow DesignValue methods in Twig.
      */
-    public const RESERVED_HANDLES = ['classes', 'keys', 'groups', 'invalid', 'toArray', 'has', 'get'];
+    public const RESERVED_HANDLES = ['classes', 'keys', 'groups', 'invalid', 'toArray', 'has', 'get', self::SLIDER_KEY];
+
+    /**
+     * Where the editor posts sliders: option handle => the choice's place on the scale
+     * (a range input posts numbers only). {@see valueFromInput()} turns them into keys.
+     */
+    public const SLIDER_KEY = '__slider';
 
     // Public Methods
     // =========================================================================
@@ -429,7 +435,7 @@ class Registry
         }
 
         if (is_array($keys)) {
-            return $this->value($keys, $profile);
+            return $this->value($this->_sliderKeys($keys, $profile), $profile);
         }
 
         $rejected = is_string($input) ? $input : (is_scalar($input) ? Json::encode($input) : get_debug_type($input));
@@ -613,5 +619,40 @@ class Registry
             : ($config['options'] ?? []);
 
         return Group::fromConfig($handle, $config, $rawOptions);
+    }
+
+    /**
+     * Turns sliders posted as places on their scale (`__slider`) into option keys.
+     *
+     * @param array<string,mixed> $keys
+     * @param string|string[]|null $profile
+     * @return array<string,mixed>
+     */
+    private function _sliderKeys(array $keys, string|array|null $profile): array
+    {
+        $places = $keys[self::SLIDER_KEY] ?? null;
+        unset($keys[self::SLIDER_KEY]);
+
+        if (!is_array($places)) {
+            return $keys;
+        }
+
+        $groups = $this->groupsFor($profile);
+
+        foreach ($places as $handle => $place) {
+            $group = $groups[$handle] ?? null;
+
+            if ($group === null || !is_numeric($place)) {
+                continue;
+            }
+
+            $key = $group->sliderKeys()[(int)$place] ?? null;
+
+            if ($key !== null) {
+                $keys[(string)$handle] = $key;
+            }
+        }
+
+        return $keys;
     }
 }

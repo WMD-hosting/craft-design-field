@@ -9,6 +9,7 @@ namespace wmd\designfield\models;
 
 use InvalidArgumentException;
 use wmd\designfield\helpers\Motion;
+use wmd\designfield\helpers\Positions;
 
 /**
  * A design option group (tone, spacing, alignment...) and its options.
@@ -34,7 +35,8 @@ class Group
     public const INPUT_SELECT = 'select';
 
     /**
-     * Input style: colour chips (options carry a `swatch` CSS colour or gradient).
+     * Input style: colour chips (options carry a `swatch` CSS colour or gradient; two colours
+     * joined by `|` split the chip, and `swatchText` draws "Aa" in that colour on it).
      */
     public const INPUT_SWATCHES = 'swatches';
 
@@ -44,12 +46,14 @@ class Group
     public const INPUT_TILES = 'tiles';
 
     /**
-     * Input style: a clickable grid of cells, for alignment and position.
+     * Input style: a clickable grid of cells, for alignment and position. Keys that name a
+     * position set (helpers/Positions) lay themselves out; other cells need `columns`.
      */
     public const INPUT_POSITION = 'position';
 
     /**
-     * Input style: a slider over the options in order, for scales.
+     * Input style: a slider over the options in order, for scales (the choice's name shows
+     * beside it).
      */
     public const INPUT_SLIDER = 'slider';
 
@@ -94,7 +98,7 @@ class Group
     /**
      * Option keys that describe the option itself rather than a class part.
      */
-    public const META_KEYS = ['label', 'icon', 'swatch', 'image', 'description', 'sample', 'motion', 'preview'];
+    public const META_KEYS = ['label', 'icon', 'swatch', 'image', 'description', 'sample', 'motion', 'preview', 'percent', 'swatchText'];
 
     /**
      * Groups with more options than this render as a dropdown by default.
@@ -117,7 +121,7 @@ class Group
     /**
      * @param string $handle
      * @param string $label
-     * @param array<string,array{label:string,icon:?string,swatch:?string,image:?string,description:?string,sample:?string,motion:?string,preview:?string,parts:array<string,string>}> $options
+     * @param array<string,array{label:string,icon:?string,swatch:?string,image:?string,description:?string,sample:?string,motion:?string,preview:?string,percent:?string,swatchText:?string,parts:array<string,string>}> $options
      * @param string $default Key of the default option
      * @param array<string,string> $aliases Old key => current key
      * @param string $input One of the INPUT_* constants
@@ -459,12 +463,26 @@ class Group
             $inputs[] = self::INPUT_MOTION;
         }
 
-        // A grid of cells, or one row of icon cells (cells without icons show only dots).
-        if ($this->columns > 0 || ($real !== [] && $with('icon') === count($real))) {
+        // A grid of cells, one row of icon cells (cells without icons show only dots), or keys
+        // that name a position set (top-left ... bottom-right, left/center/right).
+        if ($this->columns > 0 || ($real !== [] && $with('icon') === count($real)) || Positions::match(array_map('strval', array_keys($real))) !== null) {
             $inputs[] = self::INPUT_POSITION;
         }
 
         return $inputs;
+    }
+
+    /**
+     * The choices a slider steps through, in order: every option the picker shows.
+     *
+     * @return list<string>
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function sliderKeys(): array
+    {
+        return array_values(array_diff(array_map('strval', array_keys($this->options)), $this->hidden));
     }
 
     /**
@@ -562,20 +580,28 @@ class Group
      * Whether the options fit as a button row: Craft's button groups never wrap,
      * so a long row is clipped. Estimates ~7px per character plus button padding.
      *
-     * @param array<string,array{label:string,icon:?string,swatch:?string,image:?string,description:?string,sample:?string,motion:?string,preview:?string,parts:array<string,string>}> $options
+     * @param array<string,array{label:string,icon:?string,swatch:?string,image:?string,description:?string,sample:?string,motion:?string,preview:?string,percent:?string,swatchText:?string,parts:array<string,string>}> $options
      * @param bool $iconsOnly
      * @return bool
      */
     private static function _fitsButtons(array $options, bool $iconsOnly): bool
     {
-        if (!$iconsOnly && count($options) > self::BUTTONS_MAX) {
+        $samples = count(array_filter($options, static fn(array $option) => $option['sample'] !== null));
+
+        if (!$iconsOnly && $samples === 0 && count($options) > self::BUTTONS_MAX) {
             return false;
         }
 
         $width = 0;
 
+        // An "Aa" sample is a narrow button; a width bar sits beside the name (or alone).
         foreach ($options as $option) {
-            $width += $iconsOnly && $option['icon'] !== null ? 36 : mb_strlen($option['label']) * 7 + 20;
+            $width += match (true) {
+                $option['sample'] !== null => 36,
+                $option['percent'] !== null => $iconsOnly ? 40 : mb_strlen($option['label']) * 7 + 54,
+                $iconsOnly && $option['icon'] !== null => 36,
+                default => mb_strlen($option['label']) * 7 + 20,
+            };
         }
 
         return $width <= self::BUTTONS_MAX_WIDTH;
@@ -615,12 +641,12 @@ class Group
     /**
      * @param string $key
      * @param mixed $raw
-     * @return array{label:string,icon:?string,swatch:?string,image:?string,description:?string,sample:?string,motion:?string,preview:?string,parts:array<string,string>}
+     * @return array{label:string,icon:?string,swatch:?string,image:?string,description:?string,sample:?string,motion:?string,preview:?string,percent:?string,swatchText:?string,parts:array<string,string>}
      */
     private static function _normalizeOption(string $key, mixed $raw): array
     {
         if (!is_array($raw)) {
-            return ['label' => self::humanize($key), 'icon' => null, 'swatch' => null, 'image' => null, 'description' => null, 'sample' => null, 'motion' => Motion::match($key), 'preview' => null, 'parts' => ['value' => (string)$raw]];
+            return ['label' => self::humanize($key), 'icon' => null, 'swatch' => null, 'image' => null, 'description' => null, 'sample' => null, 'motion' => Motion::match($key), 'preview' => null, 'percent' => null, 'swatchText' => null, 'parts' => ['value' => (string)$raw]];
         }
 
         $parts = [];
@@ -644,6 +670,8 @@ class Group
             'sample' => $meta('sample'),
             'motion' => Motion::resolve($meta('motion'), $key),
             'preview' => $meta('preview'),
+            'percent' => $meta('percent'),
+            'swatchText' => $meta('swatchText'),
             'parts' => $parts,
         ];
     }

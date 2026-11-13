@@ -94,15 +94,15 @@ return [
 | Key | |
 |---|---|
 | `label`, `instructions` | Shown in the panel; instructions appear as an info icon |
-| `tokens` / `options` | A token file name, or inline `key => classes` / `key => [label, icon, swatch, image, description, ...parts]` |
+| `tokens` / `options` | A token file name, or inline `key => classes` / `key => [label, icon, swatch, swatchText, percent, image, description, ...parts]` |
 | `default` | Default key (first option, or `auto`) |
 | `auto` | `true` or a label: adds an `auto` option; templates fall back with `keyOr()` |
 | `aliases` | `old => new`, so renaming a key never breaks saved entries |
-| `input` | `buttons`, `select`, `swatches`, `tiles`, `position`, `slider`, `toggle` (default: buttons when they fit, else select). `toggle` is a lightswitch for a group with exactly two options, the first being "off" |
+| `input` | `buttons`, `select`, `swatches`, `tiles`, `position`, `slider`, `toggle` (default: buttons when they fit, else select). `toggle` is a lightswitch for a group with exactly two options, the first being "off". `slider` steps through the options in order with the choice's name beside it. `position` is a grid of cells (see below) |
 | `iconsOnly` | Buttons show only their icon; the label becomes the tooltip |
-| `columns` | Cells per row for `position` (default: one row) |
+| `columns` | Cells per row for `position` (default: one row, or the shape a position set's keys name) |
 | `showIf` / `variants` | Show the group only when another group has one of these keys; `variants` is short for `showIf: {variant: [...]}` |
-| `optionMeta` | Adds `label`, `icon`, `swatch`, `image`, `description` or `sample` to options defined elsewhere (token files, generated config) |
+| `optionMeta` | Adds `label`, `icon`, `swatch`, `swatchText`, `percent`, `image`, `description` or `sample` to options defined elsewhere (token files, generated config) |
 
 ### Changing a group everywhere, or for one block
 
@@ -182,7 +182,11 @@ A preset is a named set of choices shown as a button above a block's options. Ed
 
 A block shows its own presets first, then the `*` ones; its own wins when both use the same name. A preset sets only the groups the block has, and is hidden when none apply, so one `*` list serves every block.
 
-Option extras: `icon` is a Craft icon name (the bundled Font Awesome set), an SVG path or alias, or inline SVG; `swatch` is any CSS colour or gradient; `image` is a URL; `sample` is a CSS font size, shown as an "Aa" button so text sizes compare at a glance. Inline `options` are not scanned by Tailwind: put class strings in token files, or map keys to classes in templates.
+Option extras: `icon` is a Craft icon name (the bundled Font Awesome set) or inline SVG, drawn in the button in the text colour; `swatch` is any CSS colour or gradient, or two colours joined by `|` (`#4f46e5|#0ea5e9`) for a chip split on the diagonal; `swatchText` is a text colour, drawn as "Aa" on the swatch so editors see the pair (dark text on paper, white on ink); `percent` is a width (`75`, `75%` or `0.75`), drawn as a bar filled that far beside the choice's name, so Narrow, Wide and Full read at a glance while the stored key stays whatever you named it; `image` is a URL; `sample` is a CSS font size, shown as an "Aa" button so text sizes compare at a glance. Inline `options` are not scanned by Tailwind: put class strings in token files, or map keys to classes in templates.
+
+**Position grids** (`'input' => 'position'`) are square cells, `columns` to a row, with Auto or Block default on its own row above them (in a single row it leads the row). A cell shows its icon, or a dot, and its name on hover. Keys that name a complete position set lay themselves out without `columns`, in grid order whatever order they are listed in: a nine-point grid (`top-left`, `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`, `bottom-right`), the four corners, a row (`left`/`start`, `center`, `right`/`end`, each cell drawing where it sits) or a column (`top`, `middle`, `bottom`). `topLeft`, `top_left`, `left top` and `tl` are read the same way.
+
+**Sliders** (`'input' => 'slider'`) use Craft's range control: the editor posts the choice's place on the scale under `__slider`, and the field stores the choice's key. A choice the picker leaves out of a block (hidden) shows as buttons while it is chosen.
 
 ### The settings page
 
