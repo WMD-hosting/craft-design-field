@@ -257,7 +257,11 @@ class OptionControls
             Group::INPUT_SELECT, Group::INPUT_CHIP => ChoicePresentation::Select,
             Group::INPUT_TILES, Group::INPUT_RENDERED, Group::INPUT_MOTION => ChoicePresentation::Radios,
             Group::INPUT_SWATCHES, Group::INPUT_POSITION, Group::INPUT_SLIDER => ChoicePresentation::Buttons,
-            default => count($group->options) > Group::BUTTONS_MAX && $group->input === Group::INPUT_BUTTONS
+            // A long list of names reads better as a dropdown; "Aa" samples stay buttons (they are
+            // narrow, and a dropdown shows only names), as Group picks them.
+            default => $group->input === Group::INPUT_BUTTONS
+                && count($group->options) > Group::BUTTONS_MAX
+                && array_filter($group->options, static fn(array $option) => $option['sample'] !== null) === []
                 ? ChoicePresentation::Select
                 : ChoicePresentation::Buttons,
         };
@@ -284,6 +288,12 @@ class OptionControls
             $option = $group->options[$key];
 
             if ($key !== $selected && in_array($key, $group->hidden, true)) {
+                // In a grid or the corners, a cell's place is its position: keep the hidden
+                // one's place empty so the cells after it do not move.
+                if (in_array($grid['set'] ?? null, [Positions::GRID, Positions::CORNERS], true)) {
+                    $options[] = ['label' => $option['label'], 'value' => $key, 'disabled' => true, 'labelHtml' => OptionLabels::gap($grid['columns'])];
+                }
+
                 continue;
             }
 
@@ -320,10 +330,11 @@ class OptionControls
 
     /**
      * How a position option lays out its cells: cells per row, the order (the text
-     * choice first, then the cells in grid order) and where a one-line set's cells sit.
+     * choice first, then the cells in grid order), the position set its keys name (null
+     * for none) and where a one-line set's cells sit.
      *
      * @param Group $group
-     * @return array{columns:int,order:list<string>,places:array<string,string>}
+     * @return array{columns:int,order:list<string>,set:?string,places:array<string,string>}
      *
      * @author WMD
      * @since 2.0.0
@@ -336,7 +347,7 @@ class OptionControls
         $match = Positions::match($cells);
 
         if ($match === null) {
-            return ['columns' => max(0, $group->columns), 'order' => [...$text, ...$cells], 'places' => []];
+            return ['columns' => max(0, $group->columns), 'order' => [...$text, ...$cells], 'set' => null, 'places' => []];
         }
 
         $places = [];
@@ -356,6 +367,7 @@ class OptionControls
         return [
             'columns' => $group->columns > 0 ? $group->columns : $match['columns'],
             'order' => [...$text, ...array_map('strval', array_keys($match['cells']))],
+            'set' => $match['set'],
             'places' => $places,
         ];
     }
@@ -404,7 +416,7 @@ class OptionControls
      *
      * @param Group $group
      * @param string $key
-     * @param array{columns:int,order:list<string>,places:array<string,string>} $grid
+     * @param array{columns:int,order:list<string>,set:?string,places:array<string,string>} $grid
      * @return string
      */
     private static function cellHtml(Group $group, string $key, array $grid): string
@@ -415,7 +427,8 @@ class OptionControls
             return OptionLabels::textCell($option['label'], $grid['columns']);
         }
 
-        return OptionLabels::cell($option['label'], $grid['columns'], $option['icon'], $grid['places'][$key] ?? null);
+        // Outside a position set a dot says nothing: a cell without an icon shows its name.
+        return OptionLabels::cell($option['label'], $grid['columns'], $option['icon'], $grid['places'][$key] ?? null, $grid['set'] !== null);
     }
 
     /**

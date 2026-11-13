@@ -45,9 +45,15 @@ final class OptionLooksTest extends PluginTestCase
                         'size' => ['label' => 'Size', 'options' => ['sm' => ['value' => 'text-sm', 'sample' => '13px'], 'lg' => ['value' => 'text-lg', 'sample' => '19px']]],
                         'width' => ['label' => 'Width', 'options' => ['narrow' => ['value' => 'max-w-md', 'label' => 'Narrow', 'percent' => '50'], 'wide' => ['value' => 'max-w-5xl', 'label' => 'Wide', 'percent' => '75%']]],
                         'cols' => ['label' => 'Columns', 'options' => ['1' => ['value' => 'grid-cols-1', 'icon' => OptionLooksTest::BARS], '2' => ['value' => 'grid-cols-2', 'icon' => 'table-columns']]],
+                        'sizes' => ['label' => 'Sizes', 'auto' => 'Auto', 'options' => [
+                            'xs' => ['value' => 'a', 'sample' => '12px'], 'sm' => ['value' => 'b', 'sample' => '14px'], 'md' => ['value' => 'c', 'sample' => '16px'],
+                            'lg' => ['value' => 'd', 'sample' => '20px'], 'xl' => ['value' => 'e', 'sample' => '24px'],
+                        ]],
+                        'fit' => ['label' => 'Fit', 'input' => 'position', 'columns' => 2, 'options' => ['cover' => 'object-cover', 'contain' => 'object-contain', 'fill' => 'object-fill', 'none' => 'object-none']],
+                        'styled' => ['label' => 'Styled', 'iconsOnly' => true, 'options' => ['a' => ['value' => 'x', 'icon' => '<svg viewBox="0 0 20 20"><style>craft-button{display:none}</style><rect width="20" height="20"/></svg>'], 'b' => 'y']],
                         'plain' => ['label' => 'Plain', 'textOnly' => true, 'options' => ['sm' => ['value' => 'text-sm', 'sample' => '13px'], 'lg' => ['value' => 'text-lg', 'sample' => '19px']]],
                     ],
-                    'profiles' => ['blockLooks' => ['spacing', 'focus', 'align', 'tone', 'size', 'width', 'cols', 'plain']],
+                    'profiles' => ['blockLooks' => ['spacing', 'focus', 'align', 'tone', 'size', 'width', 'cols', 'plain', 'sizes', 'fit', 'styled']],
                 ] + parent::config();
             }
         });
@@ -148,6 +154,45 @@ final class OptionLooksTest extends PluginTestCase
 
         $plain = OptionControls::options($this->group('plain'), 'sm');
         self::assertArrayNotHasKey('labelHtml', $plain[0], 'textOnly keeps plain names');
+    }
+
+    public function testManySamplesStayButtonsInTheEditorToo(): void
+    {
+        $group = $this->group('sizes');
+
+        self::assertSame('buttons', $group->input);
+        self::assertSame(ChoicePresentation::Buttons, OptionControls::presentation($group), 'a dropdown would show names only, no "Aa"');
+    }
+
+    public function testAHiddenCellKeepsItsPlaceInTheGrid(): void
+    {
+        $options = OptionControls::options($this->group('focus')->withHidden(['center']), 'auto');
+
+        self::assertSame('center', $options[5]['value'], 'the middle cell stays the fifth cell of the grid');
+        self::assertTrue($options[5]['disabled']);
+        self::assertStringContainsString('df-cell--gap', $options[5]['labelHtml']);
+        self::assertSame('right', $options[6]['value']);
+
+        $chosen = OptionControls::options($this->group('focus')->withHidden(['center']), 'center');
+        self::assertArrayNotHasKey('disabled', $chosen[5], 'a hidden choice that is chosen stays a choice');
+    }
+
+    public function testCellsOutsideAPositionSetShowTheirNames(): void
+    {
+        $options = OptionControls::options($this->group('fit'), 'cover');
+
+        self::assertStringContainsString('df-cell--label', $options[0]['labelHtml']);
+        self::assertStringContainsString('<span class="df-text">Cover</span>', $options[0]['labelHtml']);
+        self::assertStringNotContainsString('df-dot', $options[0]['labelHtml']);
+    }
+
+    public function testStyleRulesInsideAnSvgIconAreDropped(): void
+    {
+        $options = OptionControls::options($this->group('styled'), 'a');
+
+        self::assertStringContainsString('<rect', $options[0]['labelHtml']);
+        self::assertStringNotContainsString('style>', $options[0]['labelHtml']);
+        self::assertStringNotContainsString('display:none', $options[0]['labelHtml']);
     }
 
     public function testThePanelUsesTheSliderInTheEditor(): void

@@ -42,7 +42,9 @@ craft-radio[data-button]:has(.df-label--drawn){padding-inline:5px}
 craft-radio-group:has(.df-cell){--df-cell:var(--c-size-control-md,2.25rem);--df-gap:var(--c-spacing-sm,8px)}
 craft-radio-group:has(.df-cell) craft-radio[data-button]{margin:0;border-color:var(--c-form-control-border-color);border-radius:var(--_radius)}
 craft-radio-group:not([data-wrapped]):has(.df-cell) craft-radio[data-button]{margin-inline-end:4px}
-craft-radio-group:has(.df-cell) craft-radio[data-button]:has(.df-cell:not(.df-cell--text)){box-sizing:border-box;width:var(--df-cell);min-width:0;padding-inline:0}
+craft-radio-group:has(.df-cell) craft-radio[data-button]:has(.df-cell:not(.df-cell--text):not(.df-cell--label)){box-sizing:border-box;width:var(--df-cell);min-width:0;padding-inline:0}
+craft-radio-group:has(.df-cell) craft-radio[data-button]:has(.df-cell--gap){visibility:hidden}
+craft-radio-group:has(.df-cell--label){max-width:none!important}
 craft-radio-group:has(.df-cell) craft-radio[data-button][checked]{border-color:var(--c-color-neutral-border-loud)}
 craft-radio-group:has(.df-cell:not([data-df-columns="0"])) craft-radio[data-button]:has(.df-cell--text){flex:1 0 100%;min-width:max-content}
 craft-radio-group:has(.df-cell[data-df-columns="1"]){max-width:calc(1 * var(--df-cell) + 1px)}

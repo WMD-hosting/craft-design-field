@@ -51,8 +51,9 @@ final class OptionLabels
      */
     public static function glyph(string $icon): string
     {
+        // The sanitiser keeps <style>, whose rules would apply to the whole control panel.
         $content = self::isSvg($icon)
-            ? Html::sanitizeSvg($icon)
+            ? (string)preg_replace('/<style\b[^>]*>.*?<\/style\s*>|<style\b[^>]*\/>/is', '', Html::sanitizeSvg($icon))
             : Html::tag('craft-icon', '', ['name' => $icon]);
 
         return Html::tag('span', $content, ['class' => 'df-glyph', 'aria-hidden' => 'true']);
@@ -163,13 +164,22 @@ final class OptionLabels
      * @param int $columns Cells per row (0 = one row)
      * @param ?string $icon The choice's icon (inline SVG or a Craft icon name)
      * @param ?string $place Where a one-line set's cell sits: `row-0` ... `column-2`
+     * @param bool $dot A cell without an icon shows a dot (its place in a position set says
+     *     where it is); false shows its name instead
      * @return string
      *
      * @author WMD
      * @since 2.0.0
      */
-    public static function cell(string $label, int $columns, ?string $icon = null, ?string $place = null): string
+    public static function cell(string $label, int $columns, ?string $icon = null, ?string $place = null, bool $dot = true): string
     {
+        if ($icon === null && $place === null && !$dot) {
+            return Html::tag('span', self::text($label), [
+                'class' => ['df-cell', 'df-cell--label'],
+                'data' => ['df-columns' => (string)$columns],
+            ]);
+        }
+
         $mark = match (true) {
             $icon !== null => self::glyph($icon),
             $place !== null => Html::tag('span', Html::tag('i', ''), ['class' => ['df-mark', "df-mark--$place"], 'aria-hidden' => 'true']),
@@ -181,6 +191,21 @@ final class OptionLabels
             'title' => $label,
             'data' => ['df-columns' => (string)$columns],
         ]);
+    }
+
+    /**
+     * An empty cell holding the place of a choice the block leaves out, so a grid's other
+     * cells stay where they are.
+     *
+     * @param int $columns Cells per row of the grid it belongs to
+     * @return string
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public static function gap(int $columns): string
+    {
+        return Html::tag('span', '', ['class' => ['df-cell', 'df-cell--gap'], 'aria-hidden' => 'true', 'data' => ['df-columns' => (string)$columns]]);
     }
 
     /**
@@ -222,8 +247,8 @@ final class OptionLabels
     }
 
     /**
-     * Allows colours, gradients, color-mix() and lengths, nothing that can break out of a
-     * style attribute.
+     * Allows colours, gradients, color-mix(), calc() and lengths: nothing that can break out
+     * of a style attribute, and no function that loads something (url(), image-set()).
      *
      * @param ?string $value
      * @return ?string
@@ -233,7 +258,11 @@ final class OptionLabels
      */
     public static function safeCss(?string $value): ?string
     {
-        if ($value === null || !preg_match('/^[a-zA-Z0-9#%(),.\s\-\/]+$/', $value)) {
+        if ($value === null || !preg_match('/^[a-zA-Z0-9#%(),.\s\-\/+*]+$/', $value)) {
+            return null;
+        }
+
+        if (preg_match('/\b(url|image|image-set|cross-fade|element|paint|attr|expression|env|src)\s*\(/i', $value)) {
             return null;
         }
 

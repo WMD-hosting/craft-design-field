@@ -26,6 +26,9 @@ final class OptionLabelsTest extends TestCase
         self::assertNull(OptionLabels::safeCss('red;background:url(x)'));
         self::assertNull(OptionLabels::safeCss('red" onmouseover="x'));
         self::assertNull(OptionLabels::safeCss(null));
+        self::assertNull(OptionLabels::safeCss('url(//tracker.example/p.png)'), 'nothing that loads a file');
+        self::assertNull(OptionLabels::safeCss('image-set(x.png 1x)'));
+        self::assertSame('calc(1rem + 2px)', OptionLabels::safeCss('calc(1rem + 2px)'));
     }
 
     public function testInlineSvgIsToldFromAnIconName(): void
