@@ -25,6 +25,7 @@ use wmd\designfield\helpers\Sections;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
+use wmd\designfield\web\controls\Grid;
 use wmd\designfield\web\controls\Steps;
 
 /**
@@ -230,6 +231,10 @@ class OptionControls
                 ->value($selected);
         }
 
+        if ($group->input === Group::INPUT_POSITION) {
+            return self::gridControl($group, $selected);
+        }
+
         $control = Choice::make($group->handle)
             ->options(self::options($group, $selected))
             ->presentation(self::presentation($group))
@@ -266,7 +271,8 @@ class OptionControls
     }
 
     /**
-     * The choices of one option, as the kit's Choice control takes them.
+     * The choices of one option, as the kit's Choice control takes them (position options
+     * have their own control, see gridControl()).
      * Choices the picker leaves out (`hidden`) are listed only while chosen.
      *
      * @param Group $group
@@ -279,26 +285,17 @@ class OptionControls
     public static function options(Group $group, string $selected): array
     {
         $options = [];
-        $grid = $group->input === Group::INPUT_POSITION ? self::grid($group) : null;
 
-        foreach ($grid['order'] ?? array_keys($group->options) as $key) {
+        foreach (array_keys($group->options) as $key) {
             $key = (string)$key;
             $option = $group->options[$key];
 
             if ($key !== $selected && in_array($key, $group->hidden, true)) {
-                // In a grid or the corners, a cell's place is its position: keep the hidden
-                // one's place empty so the cells after it do not move.
-                if (in_array($grid['set'] ?? null, [Positions::GRID, Positions::CORNERS], true)) {
-                    $options[] = ['label' => $option['label'], 'value' => $key, 'disabled' => true, 'labelHtml' => OptionLabels::gap($grid['columns'])];
-                }
-
                 continue;
             }
 
             $choice = ['label' => $option['label'], 'value' => $key];
-            $labelHtml = $grid !== null
-                ? self::cellHtml($group, $key, $grid)
-                : self::labelHtml($group, $option);
+            $labelHtml = self::labelHtml($group, $option);
 
             if ($labelHtml !== null) {
                 $choice['labelHtml'] = $labelHtml;
@@ -324,6 +321,59 @@ class OptionControls
         }
 
         return $options;
+    }
+
+    /**
+     * A position option as the grid control: the text choice, then the cells in grid order.
+     * Choices the picker leaves out (`hidden`) are listed only while chosen; in a nine-point
+     * grid or the corners their place stays empty, so the other cells do not move.
+     *
+     * @param Group $group
+     * @param string $selected The current choice
+     * @return Grid
+     *
+     * @author WMD
+     * @since 2.1.0
+     */
+    public static function gridControl(Group $group, string $selected): Grid
+    {
+        $grid = self::grid($group);
+        $keepsPlaces = in_array($grid['set'], [Positions::GRID, Positions::CORNERS], true);
+        $text = null;
+        $cells = [];
+
+        foreach ($grid['order'] as $key) {
+            $key = (string)$key;
+            $option = $group->options[$key];
+            $left = $key !== $selected && in_array($key, $group->hidden, true);
+
+            if (self::isTextCell($key)) {
+                $text = $left ? null : ['value' => $key, 'label' => (string)$option['label']];
+                continue;
+            }
+
+            if ($left) {
+                if ($keepsPlaces) {
+                    $cells[] = ['value' => $key, 'label' => (string)$option['label'], 'gap' => true];
+                }
+
+                continue;
+            }
+
+            $cells[] = [
+                'value' => $key,
+                'label' => (string)$option['label'],
+                // Outside a position set a dot says nothing: a cell without an icon shows its name.
+                'html' => OptionLabels::drawn($option['icon'], $grid['places'][$key] ?? null, $grid['set'] !== null),
+            ];
+        }
+
+        return Grid::make($group->handle)
+            ->columns($grid['columns'])
+            ->text($text)
+            ->cells($cells)
+            ->reactive()
+            ->value($selected);
     }
 
     /**
@@ -407,26 +457,6 @@ class OptionControls
     private static function isTextCell(string $key): bool
     {
         return $key === Group::AUTO;
-    }
-
-    /**
-     * The label of a position cell.
-     *
-     * @param Group $group
-     * @param string $key
-     * @param array{columns:int,order:list<string>,set:?string,places:array<string,string>} $grid
-     * @return string
-     */
-    private static function cellHtml(Group $group, string $key, array $grid): string
-    {
-        $option = $group->options[$key];
-
-        if (self::isTextCell($key)) {
-            return OptionLabels::textCell($option['label'], $grid['columns']);
-        }
-
-        // Outside a position set a dot says nothing: a cell without an icon shows its name.
-        return OptionLabels::cell($option['label'], $grid['columns'], $option['icon'], $grid['places'][$key] ?? null, $grid['set'] !== null);
     }
 
     /**

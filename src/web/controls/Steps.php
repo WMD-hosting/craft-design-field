@@ -25,6 +25,8 @@ use Override;
  */
 class Steps extends Control
 {
+    use SelectFallback;
+
     // Properties
     // =========================================================================
 
@@ -73,23 +75,6 @@ class Steps extends Control
     #[Override]
     public static function renderHtml(ControlPayload $control, mixed $value, array $attributes, UiHtmlRenderer $renderer): string
     {
-        $options = '';
-
-        foreach ($control->props['steps'] ?? [] as $step) {
-            $options .= sprintf(
-                '<option value="%s"%s>%s</option>',
-                e($step['value']),
-                (string)$step['value'] === (string)$value ? ' selected' : '',
-                e($step['label']),
-            );
-        }
-
-        return sprintf(
-            '<select id="%s"%s%s>%s</select>',
-            e($attributes['id']),
-            $attributes['name'] !== null ? ' name="' . e($attributes['name']) . '"' : '',
-            $attributes['disabled'] || $attributes['readonly'] ? ' disabled' : '',
-            $options,
-        );
+        return self::selectHtml($control->props['steps'] ?? [], $value, $attributes);
     }
 }

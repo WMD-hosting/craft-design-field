@@ -157,73 +157,25 @@ final class OptionLabels
     }
 
     /**
-     * A cell of a position grid: the choice's icon, or a mark where the cell sits in its
-     * row or column, or a dot; the name stays the tooltip and the accessible name.
+     * What a position cell draws: its icon, else a mark showing where in a row or column
+     * it sits, else a dot (only when the cells name positions), else nothing.
      *
-     * @param string $label
-     * @param int $columns Cells per row (0 = one row)
-     * @param ?string $icon The choice's icon (inline SVG or a Craft icon name)
-     * @param ?string $place Where a one-line set's cell sits: `row-0` ... `column-2`
-     * @param bool $dot A cell without an icon shows a dot (its place in a position set says
-     *     where it is); false shows its name instead
-     * @return string
+     * @param string|null $icon
+     * @param string|null $place `row-N` or `column-N` in a one-line set
+     * @param bool $dot Whether a cell without icon or place gets a dot
+     * @return ?string Null: the cell shows its name instead
      *
      * @author WMD
-     * @since 2.0.0
+     * @since 2.1.0
      */
-    public static function cell(string $label, int $columns, ?string $icon = null, ?string $place = null, bool $dot = true): string
+    public static function drawn(?string $icon, ?string $place, bool $dot): ?string
     {
-        if ($icon === null && $place === null && !$dot) {
-            return Html::tag('span', self::text($label), [
-                'class' => ['df-cell', 'df-cell--label'],
-                'data' => ['df-columns' => (string)$columns],
-            ]);
-        }
-
-        $mark = match (true) {
+        return match (true) {
             $icon !== null => self::glyph($icon),
             $place !== null => Html::tag('span', Html::tag('i', ''), ['class' => ['df-mark', "df-mark--$place"], 'aria-hidden' => 'true']),
-            default => Html::tag('span', '', ['class' => 'df-dot', 'aria-hidden' => 'true']),
+            $dot => Html::tag('span', '', ['class' => 'df-dot', 'aria-hidden' => 'true']),
+            default => null,
         };
-
-        return Html::tag('span', $mark . self::hidden($label), [
-            'class' => 'df-cell',
-            'title' => $label,
-            'data' => ['df-columns' => (string)$columns],
-        ]);
-    }
-
-    /**
-     * An empty cell holding the place of a choice the block leaves out, so a grid's other
-     * cells stay where they are.
-     *
-     * @param int $columns Cells per row of the grid it belongs to
-     * @return string
-     *
-     * @author WMD
-     * @since 2.0.0
-     */
-    public static function gap(int $columns): string
-    {
-        return Html::tag('span', '', ['class' => ['df-cell', 'df-cell--gap'], 'aria-hidden' => 'true', 'data' => ['df-columns' => (string)$columns]]);
-    }
-
-    /**
-     * The text choice of a position grid (Auto, Block default), on its own row above the cells.
-     *
-     * @param string $label
-     * @param int $columns Cells per row of the grid it belongs to
-     * @return string
-     *
-     * @author WMD
-     * @since 2.0.0
-     */
-    public static function textCell(string $label, int $columns): string
-    {
-        return Html::tag('span', self::text($label), [
-            'class' => ['df-cell', 'df-cell--text'],
-            'data' => ['df-columns' => (string)$columns],
-        ]);
     }
 
     /**

@@ -1,20 +1,40 @@
 {
+  "__plugin-vue_export-helper-BDNMzG2s.js": {
+    "file": "assets/_plugin-vue_export-helper-BDNMzG2s.js",
+    "name": "_plugin-vue_export-helper"
+  },
+  "resources/js/GridControl.vue": {
+    "file": "assets/GridControl-DQFFv8eV.js",
+    "name": "GridControl",
+    "src": "resources/js/GridControl.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "__plugin-vue_export-helper-BDNMzG2s.js"
+    ],
+    "css": [
+      "assets/GridControl-8gSJj7MQ.css"
+    ]
+  },
   "resources/js/StepsControl.vue": {
-    "file": "assets/StepsControl-1TXmeqEd.js",
+    "file": "assets/StepsControl-BZ2fTwjw.js",
     "name": "StepsControl",
     "src": "resources/js/StepsControl.vue",
     "isDynamicEntry": true,
+    "imports": [
+      "__plugin-vue_export-helper-BDNMzG2s.js"
+    ],
     "css": [
       "assets/StepsControl-DfiFg4nq.css"
     ]
   },
   "resources/js/cp.ts": {
-    "file": "assets/cp-Cs6yLwUD.js",
+    "file": "assets/cp-DfJP9KSY.js",
     "name": "cp",
     "src": "resources/js/cp.ts",
     "isEntry": true,
     "dynamicImports": [
-      "resources/js/StepsControl.vue"
+      "resources/js/StepsControl.vue",
+      "resources/js/GridControl.vue"
     ]
   }
 }

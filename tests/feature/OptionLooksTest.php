@@ -14,6 +14,7 @@ use CraftCms\Cms\Ui\UiHtmlRenderer;
 use wmd\designfield\fields\Design;
 use wmd\designfield\helpers\Registry;
 use wmd\designfield\services\Groups;
+use wmd\designfield\web\controls\Grid;
 use wmd\designfield\web\controls\Steps;
 use wmd\designfield\web\OptionControls;
 
@@ -81,9 +82,12 @@ final class OptionLooksTest extends PluginTestCase
         self::assertSame(['type' => 'string', 'enum' => ['auto', 'flush', 'tight', 'standard', 'loose']], $control->inputSchema());
     }
 
-    public function testTheSliderControlIsRegisteredWithTheControlPanel(): void
+    public function testOurControlsAreRegisteredWithTheControlPanel(): void
     {
-        self::assertTrue($this->app->make(UiControlTypes::class)->types()->contains(Steps::class));
+        $types = $this->app->make(UiControlTypes::class)->types();
+
+        self::assertTrue($types->contains(Steps::class));
+        self::assertTrue($types->contains(Grid::class));
     }
 
     public function testTheSliderDrawsADropdownWhereThePanelIsNotVue(): void
@@ -133,32 +137,6 @@ final class OptionLooksTest extends PluginTestCase
         self::assertSame(['auto', 'tight', 'standard', 'loose'], array_column(OptionControls::control($group, 'standard')->props()['steps'], 'value'));
     }
 
-    public function testANinePointGridLaysItselfOutWithAutoOnTop(): void
-    {
-        $group = $this->group('focus');
-        $options = OptionControls::options($group, 'auto');
-
-        self::assertSame(ChoicePresentation::Buttons, OptionControls::presentation($group));
-        self::assertSame(
-            ['auto', 'top-left', 'top', 'top-right', 'left', 'center', 'right', 'bottom-left', 'bottom', 'bottom-right'],
-            array_column($options, 'value'),
-        );
-        self::assertStringContainsString('df-cell--text', $options[0]['labelHtml']);
-        self::assertStringContainsString('data-df-columns="3"', $options[1]['labelHtml']);
-        self::assertStringContainsString('df-dot', $options[1]['labelHtml']);
-        self::assertStringContainsString('title="Top left"', $options[1]['labelHtml']);
-        self::assertStringContainsString('<span class="df-sr">Top left</span>', $options[1]['labelHtml']);
-    }
-
-    public function testARowOfPositionsDrawsWhereEachCellSits(): void
-    {
-        $options = OptionControls::options($this->group('align'), 'start');
-
-        self::assertStringContainsString('data-df-columns="0"', $options[0]['labelHtml']);
-        self::assertStringContainsString('df-mark--row-0', $options[0]['labelHtml']);
-        self::assertStringContainsString('df-mark--row-2', $options[2]['labelHtml']);
-    }
-
     public function testSwatchesAreChipsAPairShowsAaAndASplitHalves(): void
     {
         $group = $this->group('tone');
@@ -204,26 +182,87 @@ final class OptionLooksTest extends PluginTestCase
         self::assertSame(ChoicePresentation::Buttons, OptionControls::presentation($group), 'a dropdown would show names only, no "Aa"');
     }
 
+    public function testANinePointGridHasAutoAboveAndADotPerCell(): void
+    {
+        $control = OptionControls::control($this->group('focus'), 'top-left');
+
+        self::assertInstanceOf(Grid::class, $control);
+        self::assertSame('focus', $control->path(), 'posts the key under the option, like the buttons');
+        self::assertSame('top-left', $control->getValue());
+        self::assertSame('design-field:grid', $control->component());
+        self::assertTrue($control->isReactive());
+
+        $props = $control->props();
+        self::assertSame(3, $props['columns']);
+        self::assertSame(['value' => 'auto', 'label' => 'Auto'], $props['text']);
+        self::assertSame(
+            ['top-left', 'top', 'top-right', 'left', 'center', 'right', 'bottom-left', 'bottom', 'bottom-right'],
+            array_column($props['cells'], 'value'),
+        );
+        self::assertSame('Top left', $props['cells'][0]['label']);
+        self::assertStringContainsString('df-dot', $props['cells'][0]['html']);
+        self::assertSame(
+            ['type' => 'string', 'enum' => ['auto', 'top-left', 'top', 'top-right', 'left', 'center', 'right', 'bottom-left', 'bottom', 'bottom-right']],
+            $control->inputSchema(),
+        );
+    }
+
+    public function testARowOfPositionsDrawsWhereEachCellSits(): void
+    {
+        $props = OptionControls::control($this->group('align'), 'start')->props();
+
+        self::assertSame(0, $props['columns'], 'a row set: all cells in one row');
+        self::assertNull($props['text'], 'Align has no Auto');
+        self::assertStringContainsString('df-mark--row-0', $props['cells'][0]['html']);
+        self::assertStringContainsString('df-mark--row-2', $props['cells'][2]['html']);
+    }
+
     public function testAHiddenCellKeepsItsPlaceInTheGrid(): void
     {
-        $options = OptionControls::options($this->group('focus')->withHidden(['center']), 'auto');
+        $group = $this->group('focus')->withHidden(['center']);
+        $cells = OptionControls::control($group, 'auto')->props()['cells'];
 
-        self::assertSame('center', $options[5]['value'], 'the middle cell stays the fifth cell of the grid');
-        self::assertTrue($options[5]['disabled']);
-        self::assertStringContainsString('df-cell--gap', $options[5]['labelHtml']);
-        self::assertSame('right', $options[6]['value']);
+        self::assertSame('center', $cells[4]['value'], 'the middle cell stays the fifth cell of the grid');
+        self::assertTrue($cells[4]['gap']);
+        self::assertSame('right', $cells[5]['value']);
+        self::assertNotContains('center', OptionControls::control($group, 'auto')->inputSchema()['enum'], 'a gap cannot be picked');
 
-        $chosen = OptionControls::options($this->group('focus')->withHidden(['center']), 'center');
-        self::assertArrayNotHasKey('disabled', $chosen[5], 'a hidden choice that is chosen stays a choice');
+        $chosen = OptionControls::control($group, 'center')->props()['cells'];
+        self::assertArrayNotHasKey('gap', $chosen[4], 'a hidden choice that is chosen stays a choice');
+    }
+
+    public function testAHiddenChoiceOutsideAGridLeavesNoGap(): void
+    {
+        $cells = OptionControls::control($this->group('align')->withHidden(['center']), 'start')->props()['cells'];
+
+        self::assertSame(['start', 'end'], array_column($cells, 'value'));
     }
 
     public function testCellsOutsideAPositionSetShowTheirNames(): void
     {
-        $options = OptionControls::options($this->group('fit'), 'cover');
+        $props = OptionControls::control($this->group('fit'), 'cover')->props();
 
-        self::assertStringContainsString('df-cell--label', $options[0]['labelHtml']);
-        self::assertStringContainsString('<span class="df-text">Cover</span>', $options[0]['labelHtml']);
-        self::assertStringNotContainsString('df-dot', $options[0]['labelHtml']);
+        self::assertSame(2, $props['columns']);
+        self::assertSame('Cover', $props['cells'][0]['label']);
+        self::assertNull($props['cells'][0]['html'], 'no icon and no position: the cell shows its name');
+    }
+
+    public function testTheGridDrawsADropdownWhereThePanelIsNotVue(): void
+    {
+        $control = OptionControls::control($this->group('focus')->withHidden(['center']), 'top');
+        $payload = new ControlPayload(
+            type: Grid::class,
+            component: 'design-field:grid',
+            props: $control->props(),
+            path: ['focus'],
+            mode: ControlMode::Editable,
+            deltaGroup: [],
+        );
+        $html = Grid::renderHtml($payload, 'top', ['id' => 'f-focus', 'name' => 'fields[design][focus]', 'disabled' => false, 'readonly' => false], $this->app->make(UiHtmlRenderer::class));
+
+        self::assertStringStartsWith('<select id="f-focus" name="fields[design][focus]"><option value="auto">Auto</option>', $html);
+        self::assertStringContainsString('<option value="top" selected>Top</option>', $html);
+        self::assertStringNotContainsString('value="center"', $html, 'gaps are left out');
     }
 
     public function testStyleRulesInsideAnSvgIconAreDropped(): void

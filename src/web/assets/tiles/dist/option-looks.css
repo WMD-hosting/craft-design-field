@@ -31,11 +31,7 @@ craft-radio-group:has(craft-radio[data-card]>img[slot=icon][src$="#df-tile"]){--
 .df-bar{display:inline-block;flex:none;width:28px;height:8px;overflow:hidden;border-radius:2px;background:color-mix(in srgb,currentColor 20%,transparent)}
 .df-bar-fill{display:block;height:100%;border-radius:2px;background:currentColor}
 
-/*
- * Position grids: each cell a square button, `columns` to a row; Auto / Block default sits
- * on its own row above them. The buttons stand apart, so every one gets its own corners.
- */
-.df-cell{display:inline-grid;place-items:center;line-height:1}
+/* What a position cell draws (the grid control, design-field:grid): a dot, or a mark. */
 .df-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.6}
 .df-mark{position:relative;display:block;box-sizing:border-box;width:18px;height:18px;border:1.5px solid currentColor;border-radius:3px;opacity:.85}
 .df-mark i{position:absolute;border-radius:1px;background:currentColor}
@@ -47,26 +43,4 @@ craft-radio-group:has(craft-radio[data-card]>img[slot=icon][src$="#df-tile"]){--
 .df-mark--column-0 i{top:2px}
 .df-mark--column-1 i{top:calc(50% - 2.5px)}
 .df-mark--column-2 i{bottom:2px}
-craft-radio-group:has(.df-cell){--df-cell:var(--c-size-control-md,2.25rem);--df-gap:var(--c-spacing-sm,8px)}
-craft-radio-group:has(.df-cell) craft-radio[data-button]{margin:0;border-color:var(--c-form-control-border-color);border-radius:var(--_radius)}
-craft-radio-group:not([data-wrapped]):has(.df-cell) craft-radio[data-button]{margin-inline-end:4px}
-craft-radio-group:has(.df-cell) craft-radio[data-button]:has(.df-cell:not(.df-cell--text):not(.df-cell--label)){box-sizing:border-box;width:var(--df-cell);min-width:0;padding-inline:0}
-craft-radio-group:has(.df-cell) craft-radio[data-button]:has(.df-cell--gap){visibility:hidden}
-craft-radio-group:has(.df-cell--label){max-width:none!important}
-craft-radio-group:has(.df-cell) craft-radio[data-button][checked]{border-color:var(--c-color-neutral-border-loud)}
-/* Auto spans the grid and wraps a long name, so it never widens the grid (wider, more cells would fit a row). */
-craft-radio-group:has(.df-cell:not([data-df-columns="0"])) craft-radio[data-button]:has(.df-cell--text){flex:1 0 100%;min-width:0;white-space:normal;text-align:center}
-craft-radio-group:has(.df-cell[data-df-columns="2"]){max-width:calc(2 * var(--df-cell) + 1 * var(--df-gap) + 1px)}
-craft-radio-group:has(.df-cell[data-df-columns="3"]){max-width:calc(3 * var(--df-cell) + 2 * var(--df-gap) + 1px)}
-craft-radio-group:has(.df-cell[data-df-columns="4"]){max-width:calc(4 * var(--df-cell) + 3 * var(--df-gap) + 1px)}
-craft-radio-group:has(.df-cell[data-df-columns="5"]){max-width:calc(5 * var(--df-cell) + 4 * var(--df-gap) + 1px)}
-craft-radio-group:has(.df-cell[data-df-columns="6"]){max-width:calc(6 * var(--df-cell) + 5 * var(--df-gap) + 1px)}
-/* One column (top, middle, bottom): each cell is a full row, as wide as Auto. */
-craft-radio-group:has(.df-cell[data-df-columns="1"]){max-width:10rem}
-craft-radio-group:has(.df-cell[data-df-columns="1"]) craft-radio[data-button]:has(.df-cell:not(.df-cell--text)){width:auto;flex:1 0 100%}
 
-/*
- * Sliders (OptionControls posts them under [__slider]): Craft's range input clears the
- * browser's look and draws no track of its own, so give the browser's slider back.
- */
-input[type=range][name*="[__slider]"]{appearance:auto;-webkit-appearance:auto;accent-color:var(--c-color-accent-fill-loud,#2563eb);padding-inline:var(--c-spacing-sm,8px);cursor:pointer}
