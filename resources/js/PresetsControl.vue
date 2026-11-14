@@ -94,9 +94,8 @@ function apply(preset) {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--c-spacing-xs, 4px) var(--c-spacing-sm, 8px);
+  /* The panel's own frame below separates the row; a line of its own would double it. */
   margin-bottom: var(--c-spacing-md, 12px);
-  padding-bottom: var(--c-spacing-md, 12px);
-  border-bottom: 1px solid var(--c-color-neutral-border-quiet, #e5e7eb);
 }
 
 .df-presets__label {
@@ -125,6 +124,7 @@ function apply(preset) {
   background: var(--c-color-neutral-fill-quiet, rgb(0 0 0 / 0.05));
 }
 
+/* Pressed as core's own button radios are (the same fill in light and dark). */
 .df-presets__preset--on {
   border-color: var(--c-color-neutral-fill-loud, #5f6c7b);
   background: var(--c-color-neutral-fill-loud, #5f6c7b);
