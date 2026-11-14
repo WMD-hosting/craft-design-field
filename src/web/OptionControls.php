@@ -219,15 +219,17 @@ class OptionControls
         }
 
         // A slider shows every choice's name under its track and posts the chosen key, like
-        // the buttons. A choice the slider leaves out (hidden) keeps buttons while it is chosen.
-        $steps = $group->sliderKeys();
+        // the buttons; Block default is a button before it (no point on the scale). A choice
+        // the slider leaves out (hidden) keeps buttons while it is chosen.
+        $keys = $group->sliderKeys();
+        $steps = array_values(array_filter($keys, static fn(string $key) => !self::isTextCell($key)));
 
-        if ($group->input === Group::INPUT_SLIDER && in_array($selected, $steps, true) && count($steps) >= 2) {
+        if ($group->input === Group::INPUT_SLIDER && in_array($selected, $keys, true) && count($steps) >= 2) {
+            $choice = static fn(string $key) => ['value' => $key, 'label' => (string)$group->options[$key]['label']];
+
             return Steps::make($group->handle)
-                ->steps(array_map(
-                    static fn(string $key) => ['value' => $key, 'label' => (string)$group->options[$key]['label']],
-                    $steps,
-                ))
+                ->text(count($steps) < count($keys) ? $choice(Group::AUTO) : null)
+                ->steps(array_map($choice, $steps))
                 ->reactive()
                 ->value($selected);
         }
@@ -245,9 +247,24 @@ class OptionControls
             }
         }
 
+        $options = self::options($group, $selected);
+        $presentation = self::presentation($group);
+
+        // Buttons that only draw (colour chips, icons without names) never show which one is
+        // chosen: as the grid control, the chosen one's name is read out beside them.
+        $drawn = $presentation === ChoicePresentation::Buttons ? self::drawnCells($group, $options) : null;
+
+        if ($drawn !== null) {
+            return Grid::make($group->handle)
+                ->text($drawn['text'])
+                ->cells($drawn['cells'])
+                ->reactive()
+                ->value($selected);
+        }
+
         $control = Choice::make($group->handle)
-            ->options(self::options($group, $selected))
-            ->presentation(self::presentation($group))
+            ->options($options)
+            ->presentation($presentation)
             ->withoutPlaceholder()
             ->reactive()
             ->value($selected);
@@ -384,6 +401,43 @@ class OptionControls
             ->cells($cells)
             ->reactive()
             ->value($selected);
+    }
+
+    /**
+     * Button choices that all draw something instead of showing their name (colour chips,
+     * icons-only buttons), as grid cells: the text choice (Block default with no drawing)
+     * apart, the rest drawn. Null when any choice shows its name, or fewer than two draw.
+     *
+     * @param Group $group
+     * @param list<array<string,mixed>> $options From options()
+     * @return array{text:?array{value:string,label:string},cells:list<array{value:string,label:string,html:string}>}|null
+     *
+     * @author WMD
+     * @since 2.1.0
+     */
+    public static function drawnCells(Group $group, array $options): ?array
+    {
+        $text = null;
+        $cells = [];
+
+        foreach ($options as $option) {
+            $key = (string)$option['value'];
+            $html = match (true) {
+                isset($option['labelHtml']) && str_contains($option['labelHtml'], 'df-label--drawn') => $option['labelHtml'],
+                isset($option['icon']) && $group->iconsOnly => OptionLabels::glyph($option['icon']),
+                default => null,
+            };
+
+            if ($html !== null) {
+                $cells[] = ['value' => $key, 'label' => (string)$option['label'], 'html' => $html];
+            } elseif (self::isTextCell($key) && $text === null) {
+                $text = ['value' => $key, 'label' => (string)$option['label']];
+            } else {
+                return null;
+            }
+        }
+
+        return count($cells) >= 2 ? ['text' => $text, 'cells' => $cells] : null;
     }
 
     /**

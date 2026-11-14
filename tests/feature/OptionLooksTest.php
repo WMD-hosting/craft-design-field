@@ -70,11 +70,12 @@ final class OptionLooksTest extends PluginTestCase
                         'fit' => ['label' => 'Fit', 'input' => 'position', 'columns' => 2, 'options' => ['cover' => 'object-cover', 'contain' => 'object-contain', 'fill' => 'object-fill', 'none' => 'object-none']],
                         'styled' => ['label' => 'Styled', 'iconsOnly' => true, 'options' => ['a' => ['value' => 'x', 'icon' => '<svg viewBox="0 0 20 20"><style>craft-button{display:none}</style><rect width="20" height="20"/></svg>'], 'b' => 'y']],
                         'plain' => ['label' => 'Plain', 'textOnly' => true, 'options' => ['sm' => ['value' => 'text-sm', 'sample' => '13px'], 'lg' => ['value' => 'text-lg', 'sample' => '19px']]],
+                        'container' => ['label' => 'Container', 'iconsOnly' => true, 'options' => ['boxed' => ['value' => 'max-w-7xl', 'icon' => 'arrows-to-line'], 'wide' => ['value' => 'max-w-none', 'icon' => 'arrows-left-right']]],
                         'radius' => ['label' => 'Corner radius', 'input' => 'rendered', 'preview' => true, 'previewBase' => 'border', 'auto' => 'Block default', 'options' => ['none' => 'rounded-none', 'lg' => 'rounded-lg']],
                     ],
                     'previewStylesheet' => OptionLooksTest::$stylesheet,
                     'previewAttributes' => ['data-brand' => 'warm'],
-                    'profiles' => ['blockLooks' => ['spacing', 'focus', 'align', 'tone', 'size', 'width', 'cols', 'plain', 'sizes', 'fit', 'styled', 'radius']],
+                    'profiles' => ['blockLooks' => ['spacing', 'focus', 'align', 'tone', 'size', 'width', 'cols', 'plain', 'sizes', 'fit', 'styled', 'radius', 'container']],
                 ] + parent::config();
             }
         });
@@ -89,11 +90,11 @@ final class OptionLooksTest extends PluginTestCase
         self::assertSame('tight', $control->getValue());
         self::assertSame('design-field:steps', $control->component());
         self::assertSame(
-            ['auto', 'flush', 'tight', 'standard', 'loose'],
+            ['flush', 'tight', 'standard', 'loose'],
             array_column($control->props()['steps'], 'value'),
-            'Block default first, then the options in order',
+            'the options in order; Block default is no point on the scale',
         );
-        self::assertSame('Block default', $control->props()['steps'][0]['label']);
+        self::assertSame(['value' => 'auto', 'label' => 'Block default'], $control->props()['text']);
         self::assertTrue($control->isReactive(), 'other options may wait for this one (showIf)');
         self::assertSame(['type' => 'string', 'enum' => ['auto', 'flush', 'tight', 'standard', 'loose']], $control->inputSchema());
     }
@@ -151,7 +152,8 @@ final class OptionLooksTest extends PluginTestCase
         self::assertInstanceOf(Choice::class, OptionControls::control($group, 'flush'), 'Flush is chosen but not on the scale');
         self::assertSame(['auto', 'tight', 'standard', 'loose'], $group->sliderKeys());
         self::assertInstanceOf(Steps::class, OptionControls::control($group, 'standard'));
-        self::assertSame(['auto', 'tight', 'standard', 'loose'], array_column(OptionControls::control($group, 'standard')->props()['steps'], 'value'));
+        self::assertSame(['tight', 'standard', 'loose'], array_column(OptionControls::control($group, 'standard')->props()['steps'], 'value'));
+        self::assertInstanceOf(Steps::class, OptionControls::control($group, 'auto'), 'Block default chosen: still the slider, with its button on');
     }
 
     public function testSwatchesAreChipsAPairShowsAaAndASplitHalves(): void
@@ -339,6 +341,37 @@ final class OptionLooksTest extends PluginTestCase
         });
 
         self::assertSame(['design-field:steps', 'design-field:grid', 'design-field:rendered'], array_keys($components));
+    }
+
+    public function testColourChipsReadOutTheChosenNameAsAGrid(): void
+    {
+        $control = OptionControls::control($this->group('tone')->withHidden(['odd']), 'duo');
+
+        self::assertInstanceOf(Grid::class, $control);
+        $props = $control->props();
+        self::assertSame(0, $props['columns'], 'one line that wraps');
+        self::assertSame(['value' => 'auto', 'label' => 'Block default'], $props['text']);
+        self::assertSame(['ink', 'duo', 'none'], array_column($props['cells'], 'value'));
+        self::assertSame('Duo', $props['cells'][1]['label']);
+        self::assertStringContainsString('linear-gradient(135deg, #4f46e5 50%, #0ea5e9 50%)', $props['cells'][1]['html']);
+    }
+
+    public function testIconsOnlyButtonsBecomeAGrid(): void
+    {
+        $props = OptionControls::control($this->group('container'), 'boxed')->props();
+
+        self::assertNull($props['text']);
+        self::assertSame(['boxed', 'wide'], array_column($props['cells'], 'value'));
+        self::assertStringContainsString('<craft-icon name="arrows-to-line">', $props['cells'][0]['html']);
+    }
+
+    public function testButtonsThatShowANameStayButtons(): void
+    {
+        self::assertInstanceOf(Choice::class, OptionControls::control($this->group('tone'), 'ink'), 'Odd cannot be drawn, so it shows its name');
+        self::assertInstanceOf(Choice::class, OptionControls::control($this->group('cols'), '1'), 'icons with names');
+        self::assertInstanceOf(Choice::class, OptionControls::control($this->group('styled'), 'a'), 'one icon, one name');
+        self::assertInstanceOf(Grid::class, OptionControls::control($this->group('size'), 'sm'), '"Aa" samples draw a size without its name: read out the chosen one');
+        self::assertInstanceOf(Choice::class, OptionControls::control($this->group('plain'), 'sm'), 'textOnly keeps plain named buttons');
     }
 
     public function testStyleRulesInsideAnSvgIconAreDropped(): void

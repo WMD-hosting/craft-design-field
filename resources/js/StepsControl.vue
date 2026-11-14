@@ -1,6 +1,7 @@
 <!--
   The `design-field:steps` Control: a slider over an option's named choices.
-  Every stop's name sits under the track and the chosen one is marked. When the names do not
+  Every stop's name sits under the track and the chosen one is marked. The text choice
+  (Block default) is a button before the slider; while it is chosen the thumb is dimmed. When the names do not
   fit the width (long names, a half-width column), the stops become ticks and only the chosen
   name shows under the track. The name follows the thumb while it is dragged; the value (the
   choice's key) is emitted when it is let go, so a reactive option asks the server for a
@@ -27,15 +28,32 @@ const THUMB = 16;
 const GAP = 10;
 
 const steps = computed(() => props.control.props?.steps ?? []);
-const indexOf = (key) => Math.max(0, steps.value.findIndex((step) => String(step.value) === String(key)));
-const place = ref(indexOf(props.value));
+const text = computed(() => props.control.props?.text ?? null);
+const chosen = ref(props.value === null ? null : String(props.value));
+const indexOf = (key) => steps.value.findIndex((step) => String(step.value) === key);
+// Where the thumb sits; while the text choice is chosen it stays where it was (dimmed).
+const place = ref(Math.max(0, indexOf(chosen.value)));
 
 watch(() => props.value, (key) => {
-    place.value = indexOf(key);
+    chosen.value = key === null ? null : String(key);
+    const at = indexOf(chosen.value);
+
+    if (at !== -1) {
+        place.value = at;
+    }
 });
 
-const current = computed(() => steps.value[place.value] ?? null);
+const unset = computed(() => text.value !== null && chosen.value === String(text.value.value));
+const current = computed(() => (unset.value ? null : steps.value[place.value] ?? null));
 const locked = computed(() => props.control.mode !== 'editable');
+
+function emitIfChanged(key) {
+    chosen.value = key;
+
+    if (key !== String(props.value)) {
+        emit('update:value', key, 'discrete');
+    }
+}
 
 function slide(event) {
     place.value = Number(event.target.value);
@@ -45,8 +63,21 @@ function commit(at = place.value) {
     place.value = at;
     const key = steps.value[at]?.value;
 
-    if (key !== undefined && String(key) !== String(props.value)) {
-        emit('update:value', key, 'discrete');
+    if (key !== undefined) {
+        emitIfChanged(String(key));
+    }
+}
+
+// A click on the dimmed thumb where it already sits fires no change: take it as a pick.
+function release() {
+    if (unset.value) {
+        commit();
+    }
+}
+
+function pickText() {
+    if (!locked.value && text.value) {
+        emitIfChanged(String(text.value.value));
     }
 }
 
@@ -60,12 +91,13 @@ const stopStyle = (index) => {
 // Whether every name fits under its stop: neighbours must not touch, and the end names,
 // which line up with the track's ends, must not reach the next one.
 const root = ref(null);
+const scale = ref(null);
 const measure = ref(null);
 const compact = ref(false);
 let observer = null;
 
 function fit() {
-    const width = root.value?.clientWidth ?? 0;
+    const width = scale.value?.clientWidth ?? 0;
     const spans = measure.value ? [...measure.value.children] : [];
 
     if (!width || spans.length < 2) {
@@ -90,9 +122,9 @@ function fit() {
 onMounted(() => {
     nextTick(fit);
 
-    if (typeof ResizeObserver !== 'undefined' && root.value) {
+    if (typeof ResizeObserver !== 'undefined' && scale.value) {
         observer = new ResizeObserver(() => fit());
-        observer.observe(root.value);
+        observer.observe(scale.value);
     }
 });
 
@@ -104,13 +136,25 @@ watch(steps, () => nextTick(fit));
   <!-- The root's class stays static: the field adds its own (form-control) after mount,
        and a class binding here would drop it on the next redraw. -->
   <div ref="root" class="df-steps">
-   <div class="df-steps__body" :class="{'df-steps--locked': locked, 'df-steps--invalid': invalid, 'df-steps--compact': compact}">
+   <div class="df-steps__body" :class="{'df-steps--locked': locked, 'df-steps--invalid': invalid, 'df-steps--compact': compact, 'df-steps--unset': unset}">
     <input
-      v-if="editable && current"
+      v-if="editable && chosen !== null"
       type="hidden"
       :name="inputName(control.path)"
-      :value="current.value"
+      :value="chosen"
     />
+    <button
+      v-if="text"
+      type="button"
+      class="df-steps__text"
+      :class="{'df-steps__text--on': unset}"
+      :aria-pressed="unset ? 'true' : 'false'"
+      :disabled="locked"
+      @click="pickText"
+    >
+      {{ text.label }}
+    </button>
+    <div ref="scale" class="df-steps__scale">
     <input
       class="df-steps__track"
       type="range"
@@ -119,11 +163,12 @@ watch(steps, () => nextTick(fit));
       step="1"
       :value="place"
       :aria-label="label"
-      :aria-valuetext="current?.label"
+      :aria-valuetext="current?.label ?? text?.label"
       :aria-invalid="invalid ? 'true' : undefined"
       :disabled="locked"
       @input="slide"
       @change="commit()"
+      @pointerup="release"
     />
     <div class="df-steps__stops">
       <button
@@ -132,7 +177,7 @@ watch(steps, () => nextTick(fit));
         type="button"
         class="df-steps__stop"
         :class="{
-          'df-steps__stop--on': index === place,
+          'df-steps__stop--on': !unset && index === place,
           'df-steps__stop--first': index === 0,
           'df-steps__stop--last': index === steps.length - 1,
         }"
@@ -150,6 +195,7 @@ watch(steps, () => nextTick(fit));
     <div ref="measure" class="df-steps__measure" aria-hidden="true">
       <span v-for="step in steps" :key="step.value">{{ step.label }}</span>
     </div>
+    </div>
    </div>
   </div>
 </template>
@@ -162,6 +208,60 @@ watch(steps, () => nextTick(fit));
   width: 100%;
   max-width: 28rem;
   padding-bottom: 0.25rem;
+}
+
+/* Block default on its own row above the scale, so the scale keeps the full width for its names. */
+.df-steps__body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.df-steps__scale {
+  position: relative;
+}
+
+.df-steps__text {
+  align-self: flex-start;
+}
+
+/* Block default: a button like the grid's text choice. */
+.df-steps__text {
+  box-sizing: border-box;
+  height: var(--c-size-control-md, 2.25rem);
+  margin: 0;
+  padding: 0 0.75rem;
+  border: 1px solid var(--c-form-control-border-color, #cdd5df);
+  border-radius: var(--c-form-control-radius, 4px);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--c-text-sm, 0.875rem);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.df-steps__text:hover:not(.df-steps__text--on):not(:disabled) {
+  background: var(--c-color-neutral-fill-quiet, rgb(0 0 0 / 0.05));
+}
+
+.df-steps__text--on {
+  border-color: var(--c-color-neutral-fill-loud, #5f6c7b);
+  background: var(--c-color-neutral-fill-loud, #5f6c7b);
+  color: var(--c-color-neutral-on-loud, #fff);
+  cursor: default;
+}
+
+.df-steps__text:focus-visible {
+  outline: 2px solid var(--c-color-accent-border-loud, #2563eb);
+  outline-offset: 2px;
+}
+
+/* The block decides: the scale is there to pick from, but nothing on it is chosen. */
+.df-steps--unset .df-steps__track {
+  opacity: 0.45;
+  filter: grayscale(1);
 }
 
 .df-steps__track {

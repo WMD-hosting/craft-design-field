@@ -23,7 +23,9 @@ const emit = defineEmits(['update:value']);
 
 const text = computed(() => props.control.props?.text ?? null);
 const cells = computed(() => props.control.props?.cells ?? []);
-const cols = computed(() => props.control.props?.columns > 0 ? props.control.props.columns : Math.max(1, cells.value.length));
+// No columns: one line of cells that wraps when the width runs out (colour chips, icons).
+const line = computed(() => !(props.control.props?.columns > 0));
+const cols = computed(() => (line.value ? Math.max(1, cells.value.length) : props.control.props.columns));
 const rows = computed(() => Math.ceil(cells.value.length / cols.value));
 const drawn = computed(() => cells.value.some((cell) => !cell.gap && cell.html));
 const locked = computed(() => props.control.mode !== 'editable');
@@ -163,7 +165,7 @@ const setRef = (key) => (el) => {
         </button>
         <div
           class="df-grid__cells"
-          :class="{'df-grid__cells--named': !drawn}"
+          :class="{'df-grid__cells--named': !drawn, 'df-grid__cells--line': line}"
           :style="{'--df-cols': cols}"
         >
           <template v-for="cell in cells" :key="cell.value">
@@ -228,6 +230,17 @@ const setRef = (key) => (el) => {
 
 .df-grid__cells--named {
   grid-template-columns: repeat(var(--df-cols), auto);
+}
+
+.df-grid__cells--line {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.df-grid__stack:has(> .df-grid__cells--line) {
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .df-grid__cell {
