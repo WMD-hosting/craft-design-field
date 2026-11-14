@@ -9,6 +9,7 @@ namespace wmd\designfield;
 
 use CraftCms\Cms\Plugin\Plugin as BasePlugin;
 use CraftCms\Cms\Twig\Variables\CraftVariable;
+use CraftCms\Cms\Ui\UiControlTypes;
 use Override;
 use wmd\designfield\console\CheckCommand;
 use wmd\designfield\console\SchemaCommand;
@@ -16,6 +17,7 @@ use wmd\designfield\console\UsageCommand;
 use wmd\designfield\fields\Design;
 use wmd\designfield\services\Groups;
 use wmd\designfield\variables\DesignFieldVariable;
+use wmd\designfield\web\controls\Steps;
 
 /**
  * Design Field for Craft 6: the Design field type with its panel and its Variant
@@ -59,6 +61,12 @@ class Plugin extends BasePlugin
         __DIR__ . '/web/assets/tiles/dist/option-looks.css' => 'css/option-looks.css',
     ];
 
+    /**
+     * Loaded on control-panel pages before the panel boots: the Vue controls the panel's
+     * own Controls name (`design-field:steps`), built by `npm run build` into `public/build`.
+     */
+    protected array $vite = ['resources/js/cp.ts'];
+
     protected array $commands = [SchemaCommand::class, CheckCommand::class, UsageCommand::class];
 
     // Public Methods
@@ -70,8 +78,9 @@ class Plugin extends BasePlugin
         $this->app->singleton(Groups::class);
     }
 
-    public function boot(): void
+    public function boot(UiControlTypes $controlTypes): void
     {
         CraftVariable::macro('designField', fn() => app(DesignFieldVariable::class));
+        $controlTypes->register(Steps::class);
     }
 }

@@ -12,7 +12,6 @@ use CraftCms\Cms\Ui\Contracts\Control;
 use CraftCms\Cms\Ui\Contracts\Node;
 use CraftCms\Cms\Ui\Controls\Choice;
 use CraftCms\Cms\Ui\Controls\Lightswitch;
-use CraftCms\Cms\Ui\Controls\Range;
 use CraftCms\Cms\Ui\Enums\ChoicePresentation;
 use CraftCms\Cms\Ui\Enums\FieldWidth;
 use CraftCms\Cms\Ui\Nodes\Field;
@@ -22,11 +21,11 @@ use CraftCms\Cms\Ui\Ui;
 use wmd\designfield\fields\Design;
 use wmd\designfield\helpers\Motion;
 use wmd\designfield\helpers\Positions;
-use wmd\designfield\helpers\Registry;
 use wmd\designfield\helpers\Sections;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
+use wmd\designfield\web\controls\Steps;
 
 /**
  * The Design panel as a Craft UI: one field per option, on the controls of
@@ -217,19 +216,18 @@ class OptionControls
                 ->value($selected === $on);
         }
 
-        // A slider posts the choice's place on the scale, under its own key (Registry::SLIDER_KEY)
-        // so it is never read as a key itself. A choice the slider leaves out keeps buttons.
+        // A slider shows every choice's name under its track and posts the chosen key, like
+        // the buttons. A choice the slider leaves out (hidden) keeps buttons while it is chosen.
         $steps = $group->sliderKeys();
-        $step = array_search($selected, $steps, true);
 
-        if ($group->input === Group::INPUT_SLIDER && $step !== false && count($steps) >= 2) {
-            return Range::make([Registry::SLIDER_KEY, $group->handle])
-                ->min(0)
-                ->max(count($steps) - 1)
-                ->step(1)
-                ->suffix($group->options[$selected]['label'])
+        if ($group->input === Group::INPUT_SLIDER && in_array($selected, $steps, true) && count($steps) >= 2) {
+            return Steps::make($group->handle)
+                ->steps(array_map(
+                    static fn(string $key) => ['value' => $key, 'label' => (string)$group->options[$key]['label']],
+                    $steps,
+                ))
                 ->reactive()
-                ->value($step);
+                ->value($selected);
         }
 
         $control = Choice::make($group->handle)

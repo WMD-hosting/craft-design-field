@@ -6,11 +6,15 @@ namespace wmd\designfield\tests\feature;
 use CraftCms\Cms\Field\FieldContext;
 use CraftCms\Cms\Plugin\Testing\PluginTestCase;
 use CraftCms\Cms\Ui\Controls\Choice;
-use CraftCms\Cms\Ui\Controls\Range;
+use CraftCms\Cms\Ui\ControlPayload;
 use CraftCms\Cms\Ui\Enums\ChoicePresentation;
+use CraftCms\Cms\Ui\Enums\ControlMode;
+use CraftCms\Cms\Ui\UiControlTypes;
+use CraftCms\Cms\Ui\UiHtmlRenderer;
 use wmd\designfield\fields\Design;
 use wmd\designfield\helpers\Registry;
 use wmd\designfield\services\Groups;
+use wmd\designfield\web\controls\Steps;
 use wmd\designfield\web\OptionControls;
 
 /**
@@ -59,21 +63,56 @@ final class OptionLooksTest extends PluginTestCase
         });
     }
 
-    public function testASliderStepsThroughTheOptionsAndShowsTheChoice(): void
+    public function testASliderNamesEveryStopAndPostsTheKey(): void
     {
         $control = OptionControls::control($this->group('spacing'), 'tight');
 
-        self::assertInstanceOf(Range::class, $control);
-        self::assertSame([Registry::SLIDER_KEY, 'spacing'], $control->path());
-        self::assertSame(2, $control->getValue(), 'Block default, Flush, Tight: Tight is the third step');
-        self::assertSame(['inputType' => 'range', 'min' => 0, 'max' => 4, 'step' => 1, 'suffix' => 'Tight'], array_intersect_key($control->props(), array_flip(['inputType', 'min', 'max', 'step', 'suffix'])));
+        self::assertInstanceOf(Steps::class, $control);
+        self::assertSame('spacing', $control->path(), 'posts the key under the option, like the buttons');
+        self::assertSame('tight', $control->getValue());
+        self::assertSame('design-field:steps', $control->component());
+        self::assertSame(
+            ['auto', 'flush', 'tight', 'standard', 'loose'],
+            array_column($control->props()['steps'], 'value'),
+            'Block default first, then the options in order',
+        );
+        self::assertSame('Block default', $control->props()['steps'][0]['label']);
+        self::assertTrue($control->isReactive(), 'other options may wait for this one (showIf)');
+        self::assertSame(['type' => 'string', 'enum' => ['auto', 'flush', 'tight', 'standard', 'loose']], $control->inputSchema());
+    }
+
+    public function testTheSliderControlIsRegisteredWithTheControlPanel(): void
+    {
+        self::assertTrue($this->app->make(UiControlTypes::class)->types()->contains(Steps::class));
+    }
+
+    public function testTheSliderDrawsADropdownWhereThePanelIsNotVue(): void
+    {
+        $payload = new ControlPayload(
+            type: Steps::class,
+            component: 'design-field:steps',
+            props: ['steps' => [['value' => 'a', 'label' => 'A'], ['value' => 'b"<', 'label' => 'B & <b>']]],
+            path: ['spacing'],
+            mode: ControlMode::Editable,
+            deltaGroup: [],
+        );
+        $renderer = $this->app->make(UiHtmlRenderer::class);
+        $html = Steps::renderHtml($payload, 'b"<', ['id' => 'f-spacing', 'name' => 'fields[design][spacing]', 'disabled' => false, 'readonly' => false], $renderer);
+
+        self::assertStringContainsString('<select id="f-spacing" name="fields[design][spacing]">', $html);
+        self::assertStringContainsString('<option value="b&quot;&lt;" selected>B &amp; &lt;b&gt;</option>', $html);
+        self::assertStringContainsString('<option value="a">A</option>', $html);
+
+        $locked = Steps::renderHtml($payload, 'a', ['id' => 'x', 'name' => null, 'disabled' => false, 'readonly' => true], $renderer);
+        self::assertStringContainsString('<select id="x" disabled>', $locked);
     }
 
     public function testASliderPostComesBackAsItsKey(): void
     {
         $field = new Design(['handle' => 'design', 'profile' => 'blockLooks']);
 
-        // The editor posts the range as a string under the slider key.
+        // The slider posts the key itself; places under the old slider key still map.
+        self::assertSame('standard', $field->normalizeValueFromRequest(['spacing' => 'standard'], null)->toArray()['spacing']);
         $value = $field->normalizeValueFromRequest(['tone' => 'ink', Registry::SLIDER_KEY => ['spacing' => '2']], null);
         self::assertSame('tight', $value->toArray()['spacing']);
         self::assertSame([], $value->invalid());
@@ -90,7 +129,8 @@ final class OptionLooksTest extends PluginTestCase
 
         self::assertInstanceOf(Choice::class, OptionControls::control($group, 'flush'), 'Flush is chosen but not on the scale');
         self::assertSame(['auto', 'tight', 'standard', 'loose'], $group->sliderKeys());
-        self::assertInstanceOf(Range::class, OptionControls::control($group, 'standard'));
+        self::assertInstanceOf(Steps::class, OptionControls::control($group, 'standard'));
+        self::assertSame(['auto', 'tight', 'standard', 'loose'], array_column(OptionControls::control($group, 'standard')->props()['steps'], 'value'));
     }
 
     public function testANinePointGridLaysItselfOutWithAutoOnTop(): void
@@ -201,8 +241,8 @@ final class OptionLooksTest extends PluginTestCase
         $control = $field->uiControl(new FieldContext('design', $field->normalizeValue(['spacing' => 'loose'], null)));
         $nodes = $control->nestedUis([])[0]['ui']->nodes();
 
-        self::assertInstanceOf(Range::class, $nodes[0]->getControl());
-        self::assertSame(4, $nodes[0]->getControl()->getValue());
+        self::assertInstanceOf(Steps::class, $nodes[0]->getControl());
+        self::assertSame('loose', $nodes[0]->getControl()->getValue());
     }
 
     private function group(string $handle): \wmd\designfield\models\Group
