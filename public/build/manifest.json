@@ -15,6 +15,15 @@
       "assets/GridControl-CHhMeQLF.css"
     ]
   },
+  "resources/js/PresetsControl.vue": {
+    "file": "assets/PresetsControl-C_U4dlrE.js",
+    "name": "PresetsControl",
+    "src": "resources/js/PresetsControl.vue",
+    "isDynamicEntry": true,
+    "css": [
+      "assets/PresetsControl-DBYLhU53.css"
+    ]
+  },
   "resources/js/RenderedControl.vue": {
     "file": "assets/RenderedControl-xYiMtGy4.js",
     "name": "RenderedControl",
@@ -40,14 +49,15 @@
     ]
   },
   "resources/js/cp.ts": {
-    "file": "assets/cp-BndZgFHN.js",
+    "file": "assets/cp-DkBYYFsy.js",
     "name": "cp",
     "src": "resources/js/cp.ts",
     "isEntry": true,
     "dynamicImports": [
       "resources/js/StepsControl.vue",
       "resources/js/GridControl.vue",
-      "resources/js/RenderedControl.vue"
+      "resources/js/RenderedControl.vue",
+      "resources/js/PresetsControl.vue"
     ]
   }
 }

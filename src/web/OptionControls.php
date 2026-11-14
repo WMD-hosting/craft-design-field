@@ -121,6 +121,55 @@ class OptionControls
     }
 
     /**
+     * The presets a block offers, as the preset row takes them: each option's value as
+     * that option's control holds it, and a line naming every choice for the tooltip.
+     *
+     * @param array<int,array{label:string,values:array<string,string>}> $presets From Registry::presetsFor()
+     * @param array<string,Group> $groups The block's options
+     * @return list<array{label:string,summary:string,values:array<string,string|bool>}>
+     *
+     * @author WMD
+     * @since 2.1.0
+     */
+    public static function presets(array $presets, array $groups): array
+    {
+        $rows = [];
+
+        foreach ($presets as $preset) {
+            $values = [];
+            $summary = [];
+
+            foreach ($preset['values'] as $handle => $key) {
+                $values[$handle] = self::controlValue($groups[$handle], $key);
+                $summary[] = $groups[$handle]->label . ': ' . $groups[$handle]->options[$key]['label'];
+            }
+
+            $rows[] = ['label' => $preset['label'], 'summary' => implode(' · ', $summary), 'values' => $values];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * A choice as the option's control holds it: a switch true/false, the rest the key.
+     *
+     * @param Group $group
+     * @param string $key
+     * @return string|bool
+     *
+     * @author WMD
+     * @since 2.1.0
+     */
+    public static function controlValue(Group $group, string $key): string|bool
+    {
+        if (self::isSwitch($group)) {
+            return $key === (string)array_keys($group->options)[1];
+        }
+
+        return $key;
+    }
+
+    /**
      * The panel for one block: its options under their section headings.
      *
      * @param array<string,Group> $groups The block's options, in panel order
@@ -207,7 +256,7 @@ class OptionControls
      */
     public static function control(Group $group, string $selected): Control
     {
-        if ($group->input === Group::INPUT_TOGGLE && count($group->options) === 2) {
+        if (self::isSwitch($group)) {
             [$off, $on] = array_map('strval', array_keys($group->options));
 
             return Lightswitch::make($group->handle)
@@ -547,6 +596,17 @@ class OptionControls
 
     // Private Methods
     // =========================================================================
+
+    /**
+     * Whether an option is drawn as a switch: a toggle with two choices, off then on.
+     *
+     * @param Group $group
+     * @return bool
+     */
+    private static function isSwitch(Group $group): bool
+    {
+        return $group->input === Group::INPUT_TOGGLE && count($group->options) === 2;
+    }
 
     /**
      * Whether a position choice is the text cell above the grid (`auto`: Block default).
