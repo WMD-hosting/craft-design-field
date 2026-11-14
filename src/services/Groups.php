@@ -162,6 +162,8 @@ class Groups
             'inputs' => [],
             'sections' => [],
             'tileImages' => '/design-field/{type}/{key}.jpg',
+            'previewStylesheet' => '',
+            'previewAttributes' => [],
         ];
     }
 

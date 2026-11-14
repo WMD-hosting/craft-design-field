@@ -4,3 +4,4 @@ import {registerComponent} from '@craftcms/cp';
 
 registerComponent('design-field:steps', () => import('./StepsControl.vue'));
 registerComponent('design-field:grid', () => import('./GridControl.vue'));
+registerComponent('design-field:rendered', () => import('./RenderedControl.vue'));

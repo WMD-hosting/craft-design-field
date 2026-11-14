@@ -15,6 +15,18 @@
       "assets/GridControl-8gSJj7MQ.css"
     ]
   },
+  "resources/js/RenderedControl.vue": {
+    "file": "assets/RenderedControl-xYiMtGy4.js",
+    "name": "RenderedControl",
+    "src": "resources/js/RenderedControl.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "__plugin-vue_export-helper-BDNMzG2s.js"
+    ],
+    "css": [
+      "assets/RenderedControl-CBu0gt2L.css"
+    ]
+  },
   "resources/js/StepsControl.vue": {
     "file": "assets/StepsControl-BZ2fTwjw.js",
     "name": "StepsControl",
@@ -28,13 +40,14 @@
     ]
   },
   "resources/js/cp.ts": {
-    "file": "assets/cp-DfJP9KSY.js",
+    "file": "assets/cp-DT2K4o9a.js",
     "name": "cp",
     "src": "resources/js/cp.ts",
     "isEntry": true,
     "dynamicImports": [
       "resources/js/StepsControl.vue",
-      "resources/js/GridControl.vue"
+      "resources/js/GridControl.vue",
+      "resources/js/RenderedControl.vue"
     ]
   }
 }

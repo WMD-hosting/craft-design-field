@@ -18,6 +18,7 @@ use wmd\designfield\fields\Design;
 use wmd\designfield\services\Groups;
 use wmd\designfield\variables\DesignFieldVariable;
 use wmd\designfield\web\controls\Grid;
+use wmd\designfield\web\controls\Rendered;
 use wmd\designfield\web\controls\Steps;
 
 /**
@@ -64,7 +65,7 @@ class Plugin extends BasePlugin
 
     /**
      * Loaded on control-panel pages before the panel boots: the Vue controls the panel's
-     * own Controls name (`design-field:steps`, `design-field:grid`), built by `npm run build` into `public/build`.
+     * own Controls name (`design-field:steps`, `design-field:grid`, `design-field:rendered`), built by `npm run build` into `public/build`.
      */
     protected array $vite = ['resources/js/cp.ts'];
 
@@ -82,6 +83,6 @@ class Plugin extends BasePlugin
     public function boot(UiControlTypes $controlTypes): void
     {
         CraftVariable::macro('designField', fn() => app(DesignFieldVariable::class));
-        $controlTypes->register(Steps::class, Grid::class);
+        $controlTypes->register(Steps::class, Grid::class, Rendered::class);
     }
 }

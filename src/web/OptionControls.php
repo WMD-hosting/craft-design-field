@@ -26,6 +26,7 @@ use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
 use wmd\designfield\web\controls\Grid;
+use wmd\designfield\web\controls\Rendered;
 use wmd\designfield\web\controls\Steps;
 
 /**
@@ -235,6 +236,15 @@ class OptionControls
             return self::gridControl($group, $selected);
         }
 
+        // Rendered cards need the site's stylesheet; without one they stay named radios.
+        if ($group->input === Group::INPUT_RENDERED) {
+            $stylesheet = trim((string)app(Groups::class)->config()['previewStylesheet']);
+
+            if ($stylesheet !== '') {
+                return self::renderedControl($group, $selected, $stylesheet);
+            }
+        }
+
         $control = Choice::make($group->handle)
             ->options(self::options($group, $selected))
             ->presentation(self::presentation($group))
@@ -372,6 +382,42 @@ class OptionControls
             ->columns($grid['columns'])
             ->text($text)
             ->cells($cells)
+            ->reactive()
+            ->value($selected);
+    }
+
+    /**
+     * A rendered option as cards drawn with the site's stylesheet and brand attributes
+     * (`previewAttributes`). Choices the picker leaves out (`hidden`) are listed only while chosen.
+     *
+     * @param Group $group
+     * @param string $selected The current choice
+     * @param string $stylesheet The site's built stylesheet URL
+     * @return Rendered
+     *
+     * @author WMD
+     * @since 2.1.0
+     */
+    public static function renderedControl(Group $group, string $selected, string $stylesheet): Rendered
+    {
+        $choices = [];
+
+        foreach ($group->options as $key => $option) {
+            $key = (string)$key;
+
+            if ($key !== $selected && in_array($key, $group->hidden, true)) {
+                continue;
+            }
+
+            $choices[] = ['value' => $key, 'label' => (string)$option['label'], 'preview' => $option['preview']];
+        }
+
+        $attributes = array_map('strval', (array)app(Groups::class)->config()['previewAttributes']);
+
+        return Rendered::make($group->handle)
+            ->stylesheet($stylesheet)
+            ->attributes($attributes)
+            ->choices($choices)
             ->reactive()
             ->value($selected);
     }

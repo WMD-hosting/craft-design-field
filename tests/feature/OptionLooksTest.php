@@ -10,11 +10,14 @@ use CraftCms\Cms\Ui\ControlPayload;
 use CraftCms\Cms\Ui\Enums\ChoicePresentation;
 use CraftCms\Cms\Ui\Enums\ControlMode;
 use CraftCms\Cms\Ui\UiControlTypes;
+use CraftCms\Cms\Ui\UiContext;
 use CraftCms\Cms\Ui\UiHtmlRenderer;
+use CraftCms\Cms\Ui\UiResolver;
 use wmd\designfield\fields\Design;
 use wmd\designfield\helpers\Registry;
 use wmd\designfield\services\Groups;
 use wmd\designfield\web\controls\Grid;
+use wmd\designfield\web\controls\Rendered;
 use wmd\designfield\web\controls\Steps;
 use wmd\designfield\web\OptionControls;
 
@@ -24,12 +27,22 @@ use wmd\designfield\web\OptionControls;
  */
 final class OptionLooksTest extends PluginTestCase
 {
+    public static string $stylesheet = '/build/site.css';
+
     public const BARS = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><rect x="1" y="4" width="18" height="12"/><script>alert(1)</script></svg>';
 
     protected function setUp(): void
     {
         parent::setUp();
 
+        $this->bindGroups();
+    }
+
+    /**
+     * The test config as the Groups service (again after changing self::$stylesheet).
+     */
+    private function bindGroups(): void
+    {
         $this->app->instance(Groups::class, new class() extends Groups {
             public function config(): array
             {
@@ -57,8 +70,11 @@ final class OptionLooksTest extends PluginTestCase
                         'fit' => ['label' => 'Fit', 'input' => 'position', 'columns' => 2, 'options' => ['cover' => 'object-cover', 'contain' => 'object-contain', 'fill' => 'object-fill', 'none' => 'object-none']],
                         'styled' => ['label' => 'Styled', 'iconsOnly' => true, 'options' => ['a' => ['value' => 'x', 'icon' => '<svg viewBox="0 0 20 20"><style>craft-button{display:none}</style><rect width="20" height="20"/></svg>'], 'b' => 'y']],
                         'plain' => ['label' => 'Plain', 'textOnly' => true, 'options' => ['sm' => ['value' => 'text-sm', 'sample' => '13px'], 'lg' => ['value' => 'text-lg', 'sample' => '19px']]],
+                        'radius' => ['label' => 'Corner radius', 'input' => 'rendered', 'preview' => true, 'previewBase' => 'border', 'auto' => 'Block default', 'options' => ['none' => 'rounded-none', 'lg' => 'rounded-lg']],
                     ],
-                    'profiles' => ['blockLooks' => ['spacing', 'focus', 'align', 'tone', 'size', 'width', 'cols', 'plain', 'sizes', 'fit', 'styled']],
+                    'previewStylesheet' => OptionLooksTest::$stylesheet,
+                    'previewAttributes' => ['data-brand' => 'warm'],
+                    'profiles' => ['blockLooks' => ['spacing', 'focus', 'align', 'tone', 'size', 'width', 'cols', 'plain', 'sizes', 'fit', 'styled', 'radius']],
                 ] + parent::config();
             }
         });
@@ -88,6 +104,7 @@ final class OptionLooksTest extends PluginTestCase
 
         self::assertTrue($types->contains(Steps::class));
         self::assertTrue($types->contains(Grid::class));
+        self::assertTrue($types->contains(Rendered::class));
     }
 
     public function testTheSliderDrawsADropdownWhereThePanelIsNotVue(): void
@@ -263,6 +280,65 @@ final class OptionLooksTest extends PluginTestCase
         self::assertStringStartsWith('<select id="f-focus" name="fields[design][focus]"><option value="auto">Auto</option>', $html);
         self::assertStringContainsString('<option value="top" selected>Top</option>', $html);
         self::assertStringNotContainsString('value="center"', $html, 'gaps are left out');
+    }
+
+    public function testARenderedOptionIsDrawnWithTheSiteStylesheet(): void
+    {
+        $control = OptionControls::control($this->group('radius'), 'lg');
+
+        self::assertInstanceOf(Rendered::class, $control);
+        self::assertSame('radius', $control->path());
+        self::assertSame('lg', $control->getValue());
+        self::assertTrue($control->isReactive());
+
+        $props = $control->props();
+        self::assertSame('/build/site.css', $props['stylesheet']);
+        self::assertSame(['data-brand' => 'warm'], $props['attributes']);
+        self::assertSame(['auto', 'none', 'lg'], array_column($props['choices'], 'value'));
+        self::assertNull($props['choices'][0]['preview'], 'Block default is a card with its name');
+        self::assertSame('border rounded-lg', $props['choices'][2]['preview'], 'the base, then the choice');
+        self::assertSame(['type' => 'string', 'enum' => ['auto', 'none', 'lg']], $control->inputSchema());
+
+        $html = Rendered::renderHtml(
+            new ControlPayload(type: Rendered::class, component: 'design-field:rendered', props: $props, path: ['radius'], mode: ControlMode::Editable, deltaGroup: []),
+            'lg',
+            ['id' => 'r', 'name' => 'fields[design][radius]', 'disabled' => false, 'readonly' => false],
+            $this->app->make(UiHtmlRenderer::class),
+        );
+        self::assertStringContainsString('<option value="lg" selected>', $html);
+    }
+
+    public function testWithoutASiteStylesheetARenderedOptionStaysRadios(): void
+    {
+        self::$stylesheet = '';
+
+        try {
+            $this->bindGroups();
+            $control = OptionControls::control($this->group('radius'), 'lg');
+        } finally {
+            self::$stylesheet = '/build/site.css';
+        }
+
+        self::assertInstanceOf(Choice::class, $control);
+        self::assertSame(ChoicePresentation::Radios, OptionControls::presentation($this->group('radius')));
+    }
+
+    public function testTheWholePanelResolvesAsTheControlPanelDoes(): void
+    {
+        // The resolver checks what the browser gets (JSON-safe props, registered controls).
+        $groups = $this->app->make(Groups::class)->getRegistry()->groupsFor('blockLooks');
+        $keys = array_map(static fn($group) => $group->default, $groups);
+        $payload = $this->app->make(UiResolver::class)->resolve(OptionControls::ui($groups, $keys), new UiContext(namespace: 'design', values: $keys));
+        $json = json_decode(json_encode($payload, JSON_THROW_ON_ERROR), true);
+        $components = [];
+
+        array_walk_recursive($json, static function($value, $key) use (&$components) {
+            if ($key === 'component' && is_string($value) && str_starts_with($value, 'design-field:')) {
+                $components[$value] = true;
+            }
+        });
+
+        self::assertSame(['design-field:steps', 'design-field:grid', 'design-field:rendered'], array_keys($components));
     }
 
     public function testStyleRulesInsideAnSvgIconAreDropped(): void
