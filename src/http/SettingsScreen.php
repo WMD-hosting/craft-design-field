@@ -16,6 +16,9 @@ use CraftCms\Cms\Support\Html;
 use CraftCms\Cms\Support\Url;
 use CraftCms\Cms\Field\FieldContext;
 use CraftCms\Cms\Ui\Contracts\Node;
+use CraftCms\Cms\Ui\Controls\Choice;
+use CraftCms\Cms\Ui\Controls\Table as ControlTable;
+use CraftCms\Cms\Ui\Enums\ControlMode;
 use CraftCms\Cms\Ui\Nodes\Callout;
 use CraftCms\Cms\Ui\Nodes\Field as UiField;
 use CraftCms\Cms\Ui\Nodes\Heading;
@@ -27,21 +30,27 @@ use DateTimeImmutable;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
 use wmd\designfield\fields\Design;
+use wmd\designfield\helpers\InputOverrides;
 use wmd\designfield\helpers\Registry;
+use wmd\designfield\helpers\SettingsRows;
+use wmd\designfield\helpers\StyleChoices;
 use wmd\designfield\helpers\UsageReport;
 use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
 use wmd\designfield\services\Health;
+use wmd\designfield\services\SettingsFile;
 use wmd\designfield\services\Usage;
 use wmd\designfield\web\controls\BlockPicker;
 use wmd\designfield\web\controls\PresetBlock;
 
 /**
  * The plugin's settings page (Settings → Plugins → Design Field): the configuration
- * check, the usage report and the preview of a block's panel, each on its own tab. It
- * saves no setting: the config file is the configuration, so the page opens with admin
- * changes off. Only "Make tile pictures" on the Preview tab writes (picture files), and
- * only where admin changes are allowed.
+ * check, looks, the preview of a block's panel, presets and the usage report, each on
+ * its own tab. It
+ * opens with admin changes off; what it writes, it writes only where they are allowed,
+ * and only site files: the Looks and Presets tabs save to the settings file beside the
+ * config file (services/SettingsFile), and "Make tile pictures" on the Preview tab saves
+ * picture files. Groups, options and profiles stay in the config file.
  *
  * A tab is a URL (`?tab=`), so only the open one is built: the usage report reads every entry.
  *
@@ -61,7 +70,7 @@ class SettingsScreen
     /**
      * The tabs in nav order: `?tab=` value => label. The first is the default.
      */
-    public const TABS = ['configuration' => 'Configuration', 'preview' => 'Preview', 'usage' => 'Usage'];
+    public const TABS = ['configuration' => 'Configuration', 'looks' => 'Looks', 'preview' => 'Preview', 'presets' => 'Presets', 'usage' => 'Usage'];
 
     /**
      * Path of the Preview tab's panel in its Ui.
@@ -85,6 +94,7 @@ class SettingsScreen
         private readonly EntryTypes $entryTypes,
         private readonly Fields $fields,
         private readonly GeneralConfig $generalConfig,
+        private readonly SettingsFile $settingsFile,
     ) {
     }
 
@@ -114,9 +124,27 @@ class SettingsScreen
             $props['refreshUrl'] = Url::cpUrl('design-field/preview/ui', $block === null ? [] : ['block' => $block]);
         }
 
+        // Looks and Presets are the two tabs that save, to the settings file beside the config
+        // file: a site file, so only where admin changes are allowed.
+        if ($tab === 'looks' || $tab === 'presets') {
+            $form = $tab === 'looks' ? $this->looksForm() : $this->presetsForm();
+
+            if ($form !== null) {
+                $editable = $this->generalConfig->allowAdminChanges && $form['editable'];
+                $ui = Ui::make(array_values($form['nodes']));
+                $context = new UiContext(values: $form['values'], mode: $editable ? ControlMode::Editable : ControlMode::ReadOnly);
+                $props += match (true) {
+                    $editable => ['submit' => ['method' => 'post', 'url' => Url::cpUrl("design-field/settings/$tab")]],
+                    !$this->generalConfig->allowAdminChanges => ['readOnly' => true],
+                    default => [],
+                };
+            }
+        }
+
         $ui ??= Ui::make(match ($tab) {
             'usage' => $this->usageNodes($request),
             'preview' => [Callout::make('preview-error', 'The preview needs a configuration that builds: see the Configuration tab.')->variant('danger')],
+            'looks', 'presets' => [Callout::make("$tab-error", 'This tab needs a configuration that builds: see the Configuration tab.')->variant('danger')],
             default => $this->configurationNodes(),
         });
 
@@ -223,6 +251,143 @@ class SettingsScreen
     public static function url(string $tab = 'configuration', array $params = []): string
     {
         return Url::cpUrl(self::PATH, ($tab === array_key_first(self::TABS) ? [] : ['tab' => $tab]) + $params);
+    }
+
+    /**
+     * The Looks tab: one input style swapped for another on every option that has it,
+     * and one row per option with its look on every block and the heading it is listed
+     * under. Saved to the settings file as `inputs` (`styles`, `groups`, `sections`).
+     *
+     * @return ?array{nodes:list<Node>,values:array<string,mixed>,editable:bool} Null when the configuration does not build
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function looksForm(): ?array
+    {
+        try {
+            $registry = $this->groups->getRegistry();
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+
+        $saved = InputOverrides::clean($this->settingsFile->read()['inputs']);
+        $rows = StyleChoices::rows($registry);
+        $asConfigured = static fn(string $base): array => ['label' => $base === '' ? 'As configured' : sprintf('As configured (%s)', StyleChoices::LABELS[$base] ?? $base), 'value' => ''];
+
+        // Quick switch: the styles options have before any pick here, most used first.
+        $used = [];
+        foreach ($rows as $row) {
+            if ($row['base'] !== '') {
+                $used[$row['base']] = ($used[$row['base']] ?? 0) + 1;
+            }
+        }
+        arsort($used);
+
+        // A style swapped away is no option's style any more: it stays listed, to swap it back.
+        $used += array_fill_keys(array_keys($saved['styles']), 0);
+
+        $nodes = [
+            MarkdownContent::make('looks-intro', 'How options look to editors: icons, labelled buttons, a dropdown, a slider. What you save here is written to `config/craft/design-field.settings.json`, beside the config file, and wins over the looks set in that file: commit it with the site. The Preview tab shows the result after a save.'),
+            Heading::make('looks-switch-heading', 'Quick switch')
+                ->description('Show every option of one style another way, on every block: for example Icons as Labels only, for editors who prefer words. An option that cannot take the new style keeps its own, and an option\'s own look below still wins.'),
+        ];
+
+        $values = ['styles' => [], 'looks' => []];
+        foreach ($used as $from => $count) {
+            $values['styles'][$from] = $saved['styles'][$from] ?? '';
+            $options = [['label' => 'Leave as it is', 'value' => '']];
+            foreach (StyleChoices::LABELS as $value => $label) {
+                if ($value !== $from) {
+                    $options[] = ['label' => $label, 'value' => $value];
+                }
+            }
+
+            $nodes[] = UiField::make($count === 0
+                ? sprintf('%s (swapped)', StyleChoices::LABELS[$from] ?? $from)
+                : sprintf('%s (%d %s)', StyleChoices::LABELS[$from] ?? $from, $count, $count === 1 ? 'option' : 'options'))
+                ->width(25)
+                ->control(Choice::make(['styles', $from])->withoutPlaceholder()->options($options));
+        }
+
+        $cells = [];
+        foreach ($rows as $row) {
+            $handle = $row['handle'];
+            $look = isset($saved['groups'][$handle]) ? StyleChoices::value($saved['groups'][$handle]) : '';
+            $values['looks'][$handle] = [
+                'option' => sprintf('%s (%s)', $row['label'], $handle),
+                'blocks' => (string)$row['blocks'],
+                'look' => $look,
+                'section' => $saved['sections'][$handle] ?? '',
+            ];
+            $cells[$handle] = ['look' => ['options' => [
+                $asConfigured($row['base']),
+                ...array_map(static fn(string $value) => ['label' => StyleChoices::LABELS[$value], 'value' => $value], array_values(array_unique([...$row['values'], ...($look === '' ? [] : [$look])]))),
+            ]]];
+        }
+
+        $nodes[] = UiField::make('Option looks')
+            ->instructions('One row per option, most used first. **Looks like** sets the option\'s look on every block that has it, where it can take it (a toggle needs exactly two choices). **Section** is the heading the option is listed under in the panel; empty keeps the one from the config file.')
+            ->control(ControlTable::make('looks')
+                ->keyed()
+                ->columns([
+                    'option' => ['heading' => 'Option', 'type' => 'heading'],
+                    'blocks' => ['heading' => 'Blocks', 'type' => 'heading'],
+                    'look' => ['heading' => 'Looks like', 'type' => 'select', 'options' => [$asConfigured('')]],
+                    'section' => ['heading' => 'Section', 'type' => 'singleline'],
+                ])
+                ->cellOptions($cells));
+
+        return ['nodes' => $nodes, 'values' => $values, 'editable' => true];
+    }
+
+    /**
+     * The Presets tab: one row per preset, saved to the settings file as `presets`.
+     * Presets named in the config file itself show read only: that file wins.
+     *
+     * @return ?array{nodes:list<Node>,values:array<string,mixed>,editable:bool} Null when the configuration does not build
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function presetsForm(): ?array
+    {
+        try {
+            $registry = $this->groups->getRegistry();
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+
+        $inFile = array_key_exists('presets', $this->groups->fileConfig());
+        $labels = $this->blockLabels($registry) + [Registry::FALLBACK_PROFILE => 'Every block (*)'];
+        $labels[Registry::FALLBACK_PROFILE] = 'Every block (*)';
+        $rows = SettingsRows::presetRows($registry->presets);
+
+        // A preset for a block that is gone stays selectable, so a save does not drop it unseen.
+        foreach ($rows as $row) {
+            $labels[$row['profile']] ??= sprintf('%s (not in the config)', $row['profile']);
+        }
+
+        return [
+            'nodes' => [
+                MarkdownContent::make('presets-intro', 'One-click sets of choices shown above a block\'s options. What you save here is written to `config/craft/design-field.settings.json`, beside the config file: commit it with the site.'),
+                ...($inFile ? [Callout::make('presets-in-file', 'Presets are set in `config/craft/design-field.php`. Remove `presets` from that file to edit them here instead.')->variant('warning')] : []),
+                UiField::make('Presets')
+                    ->instructions('One row per preset. **Choices** is a comma list of `group=key`, for example `tone=inverted, spacing=loose`; the Preview tab lists each block\'s groups and keys under the panel. A block shows its own presets first, then those of every block; a choice for a group the block does not have is left out there.')
+                    ->control(ControlTable::make('presets')
+                        ->columns([
+                            'profile' => ['heading' => 'Block', 'type' => 'select', 'options' => array_map(static fn(string $name, string $label) => ['label' => $label, 'value' => $name], array_keys($labels), $labels)],
+                            'name' => ['heading' => 'Preset', 'type' => 'singleline'],
+                            'choices' => ['heading' => 'Choices', 'type' => 'singleline', 'code' => true, 'placeholder' => 'group=key, group=key'],
+                        ])
+                        ->allowAdd()
+                        ->allowDelete()
+                        ->allowReorder()
+                        ->addRowLabel('Add a preset')),
+            ],
+            'values' => ['presets' => $rows],
+            'editable' => !$inFile,
+        ];
     }
 
     /**

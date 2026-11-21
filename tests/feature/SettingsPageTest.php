@@ -73,9 +73,9 @@ final class SettingsPageTest extends PluginTestCase
         $props = self::props($this->get(self::URL));
 
         self::assertSame('Design Field', $props->title);
-        self::assertSame(['Configuration', 'Preview', 'Usage'], array_column($props->subnav, 'label'));
-        self::assertSame([true, false, false], array_column($props->subnav, 'selected'));
-        self::assertStringEndsWith('settings/plugins/design-field?tab=usage', $props->subnav[2]->url ?? $props->subnav[2]->href);
+        self::assertSame(['Configuration', 'Looks', 'Preview', 'Presets', 'Usage'], array_column($props->subnav, 'label'));
+        self::assertSame(['Configuration'], array_column(array_filter($props->subnav, static fn(object $item) => $item->selected), 'label'));
+        self::assertStringEndsWith('settings/plugins/design-field?tab=usage', $props->subnav[4]->url ?? $props->subnav[4]->href);
         self::assertObjectNotHasProperty('submit', $props, 'nothing to save');
 
         $nodes = self::nodes($props);
@@ -137,7 +137,7 @@ final class SettingsPageTest extends PluginTestCase
         $props = self::props($this->get(self::URL . '?tab=usage'));
         $nodes = self::nodes($props);
 
-        self::assertSame([false, false, true], array_column($props->subnav, 'selected'));
+        self::assertSame(['Usage'], array_column(array_filter($props->subnav, static fn(object $item) => $item->selected), 'label'));
         self::assertStringContainsString('tab=usage&run=1', html_entity_decode($nodes['usage-run']->props->html));
         self::assertArrayNotHasKey('usage-totals', $nodes);
         self::assertNull(Cache::get(Usage::COUNTS_KEY), 'nothing was counted');
