@@ -297,10 +297,10 @@ class SettingsScreen
 
         return Table::make('usage-blocks')
             ->columns([
-                ['key' => 'block', 'label' => 'Block', 'sortable' => true],
+                ['key' => 'block', 'label' => 'Block', 'sortable' => true, 'wrap' => true, 'width' => '1.2fr'],
                 ['key' => 'entries', 'label' => 'Entries', 'sortable' => true, 'thin' => true],
-                ['key' => 'never', 'label' => 'Never changed from the default: drop or hardcode', 'wrap' => true],
-                ['key' => 'same', 'label' => 'Always the same choice: make it the default', 'wrap' => true],
+                ['key' => 'never', 'label' => 'Never changed (drop or hardcode)', 'wrap' => true, 'width' => '3fr'],
+                ['key' => 'same', 'label' => 'Always the same (make it the default)', 'wrap' => true, 'width' => '2fr'],
             ])
             ->rows($rows)
             ->searchable('Find a block or an option');
