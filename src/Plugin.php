@@ -29,8 +29,6 @@ use wmd\designfield\web\controls\Steps;
  * condition rule, the registry service, `craft.designField` and the settings page
  * (http/SettingsScreen).
  *
- * Not ported yet: Make tile pictures.
- *
  * @author WMD
  * @since 1.0.0
  */
@@ -47,8 +45,8 @@ class Plugin extends BasePlugin
     public bool $config = false;
 
     /**
-     * The settings page only reads (the configuration check and the usage report), so
-     * it also opens where admin changes are off.
+     * The settings page saves no setting (the configuration check, the usage report and
+     * the preview), so it also opens where admin changes are off.
      */
     public bool $hasCpSettings = true;
 

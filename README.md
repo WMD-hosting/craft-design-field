@@ -22,7 +22,6 @@ One field for every design option of a block. Tone, spacing, layout, columns, al
 Design Field 2 is a beta, as Craft 6 is. The field, its panel, the templates API, the condition rule, the console commands, the MCP schema and the [settings page](#the-settings-page) with its Configuration, Preview and Usage tabs are in. These parts of 1.x are **not in 2.x yet**:
 
 - the Looks and Presets tabs of the settings page: looks and presets are set in the config file, which is the whole configuration (Tidy up stays on 1.x);
-- **Make tile pictures**;
 - the tools that move a Craft 5 site's option fields onto the field (`import`, `adopt`, `migrate`). Run those on Craft 5 with 1.x.
 
 ## Price
@@ -160,6 +159,8 @@ They take any group setting (`input`, `label`, `default`, `optionMeta`, `variant
 
 Layout options show as **picture tiles** when each layout has a picture. A picture comes from the config (`'image' => '/design-field/blockCta/split.jpg'`), or from a file at `tileImages` (default `/design-field/{type}/{key}.jpg` under the web root). A picture whose file is missing is left out. Hovering a tile, or reaching it with the keyboard, shows the picture at its real size.
 
+**Make tile pictures** (settings page, Preview tab, above the block) makes the missing ones in the browser: each layout loads in a hidden frame through `blockPreviewUrl`, is drawn to a 480 px JPEG (modern-screenshot, MIT, shipped with the plugin) and saved to `tileImages`. Nothing to install on the server. With none missing, it offers to make them all again. The pictures show a saved block of that type, as the preview does. Set `tileSkip` to a CSS selector for things on the preview page that are not part of a block (a dev toolbar, an accessibility badge). Pictures are site files: commit them with the site. The button shows for a block with a layout list, where `blockPreviewUrl` and `tileImages` are set and admin changes are allowed.
+
 ### Sections
 
 Blocks with many options read better with headings. Give options a section and the panel lists them under it (options without one come first; a section whose options the current layout all hides disappears):
@@ -204,7 +205,7 @@ A block shows its own presets first, then the `*` ones; its own wins when both u
 
 ![The settings page: the configuration check](resources/screenshots/settings-configuration.png)
 
-**Settings → Plugins → Design Field** (admins only; a Design field's settings link to it). It only reads, so it also opens where admin changes are off.
+**Settings → Plugins → Design Field** (admins only; a Design field's settings link to it). It saves no setting, so it also opens where admin changes are off.
 
 - **Configuration**: what `design-field:check` prints. The configuration check (blocks in the file this install does not have, fields set to a missing block, preset choices no block offers, option pictures missing under the web root) and the [template check](#template-check), one row per finding.
 - **Preview**: the real Design panel of any block, with its defaults and presets. Layouts show and hide their options and presets apply, but nothing is saved. Under it, the block's group handles and keys, for writing `presets`. With `blockPreviewUrl` in the config file, the block itself renders next to the panel and follows every change, drawn at a real desktop (1280), tablet (768) or mobile (375) width and scaled to fit, so its breakpoints are the device's:
@@ -213,7 +214,7 @@ A block shows its own presets first, then the `*` ones; its own wins when both u
   'blockPreviewUrl' => '/_design-field/block?type={type}&design={design}',
   ```
 
-  `{type}` is the block's entry type handle and `{design}` the panel's choices as JSON (option handle => key). [`examples/block-preview.twig`](examples/block-preview.twig) is a page for it, with the route: it shows the newest live block of that type and sets the choices for that render only. Without `blockPreviewUrl` the tab shows the panel alone.
+  `{type}` is the block's entry type handle and `{design}` the panel's choices as JSON (option handle => key). [`examples/block-preview.twig`](examples/block-preview.twig) is a page for it, with the route: it shows the newest live block of that type and sets the choices for that render only. Without `blockPreviewUrl` the tab shows the panel alone. **Make tile pictures** is on this tab too: see [Tile pictures](#tile-pictures).
 - **Usage**: the [usage report](#usage-report), run when you ask for it because it reads every entry. One row per block: the options nobody changed from the default, and the ones where every entry picked the same choice. **Count blocks saved in** limits it to the last 12, 6 or 3 months; the table can be searched and sorted. A run over all time also refreshes the **Most used** counts.
 
 ![The settings page: the usage report](resources/screenshots/settings-usage.png)

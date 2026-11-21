@@ -39,8 +39,9 @@ use wmd\designfield\web\controls\PresetBlock;
 /**
  * The plugin's settings page (Settings → Plugins → Design Field): the configuration
  * check, the usage report and the preview of a block's panel, each on its own tab. It
- * only reads: the config file is the configuration, so there is nothing to save and
- * the page opens with admin changes off.
+ * saves no setting: the config file is the configuration, so the page opens with admin
+ * changes off. Only "Make tile pictures" on the Preview tab writes (picture files), and
+ * only where admin changes are allowed.
  *
  * A tab is a URL (`?tab=`), so only the open one is built: the usage report reads every entry.
  *

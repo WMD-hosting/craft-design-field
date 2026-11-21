@@ -78,18 +78,22 @@ the whole configuration: nothing on the page saves a setting until stage 4 is de
 
 | | |
 |---|---|
-| Screen | a button on the Preview tab, shown when the block has layouts, `blockPreviewUrl` and `tileImages` are set and admin changes are allowed |
+| Screen | a button on the Preview tab, above the block, shown when the block has a layout list, `blockPreviewUrl` and `tileImages` are set and admin changes are allowed |
 | Routes | `routes/cp.php`: `POST design-field/tiles/save` |
 | Permissions | admin and `RequireAdminChanges` (the pictures are site files that belong in the repository) |
-| Reused | `services\Groups` (`tilePath()`, `tileImage()`), `helpers\Registry` (the block's layout list), `modern-screenshot` as on 1.x (MIT, shipped with the build) |
+| Reused | `services\Groups` (`tilePath()`, `tileImage()`), `helpers\Registry` (the block's layout list), the `design-field:preview` control of stage 2, `modern-screenshot` as on 1.x (MIT, bundled by Vite as its own chunk, loaded on the first click) |
 
 - Each layout without a picture loads in a hidden frame through `blockPreviewUrl`, is drawn to a 480 px
-  JPEG in the browser and posted to the action, which checks block, layout, size and type (480 px wide
+  JPEG in the browser and posted to the route, which checks block, layout, size and type (480 px wide
   JPEG, under 2 MB) and writes it to `tileImages` under the web root. With none missing it offers to make
-  them all again. `tileSkip` (a CSS selector) leaves things out of the picture.
-- **Tests:** `TilesTest`: a valid picture is written to the tile path; an unknown layout, another image
-  type, a wrong width and an oversized body are refused; refused with admin changes off and for a
-  non-admin.
+  them all again. `tileSkip` (a CSS selector) leaves things out of the picture. The page loads again
+  when pictures were made, so the panel shows them.
+- Pictures are per entry type, as the registry reads them: `pageBuilder:blockHero` and `blockHero`
+  share theirs.
+- **Tests:** `TilesTest`: the tab offers it for a block with layouts only, and not with admin changes
+  off; a valid picture is written to the tile path and the panel then shows it; an unknown block or
+  layout, a path as a key, another width, another image type and an oversized body are refused and
+  nothing is written; the route carries `RequireAdmin` and `RequireAdminChanges`.
 
 ## Stage 4: Looks and Presets (not started: needs a decision)
 

@@ -49,12 +49,7 @@ final class TilesTest extends PluginTestCase
             'blockPreviewUrl' => '/_design-field/block?type={type}&design={design}',
         ];
 
-        $this->app->instance(Groups::class, new class() extends Groups {
-            public function config(): array
-            {
-                return TilesTest::$config + parent::config();
-            }
-        });
+        $this->readConfig();
 
         $this->webRoot = sys_get_temp_dir() . '/design-field-tiles-' . bin2hex(random_bytes(4));
         File::ensureDirectoryExists($this->webRoot);
@@ -81,13 +76,7 @@ final class TilesTest extends PluginTestCase
         // Not for a block without a layout list, and not where pictures are off.
         self::assertObjectNotHasProperty('tiles', $this->panel(str_replace('blockHero', 'blockCta', self::TAB))->props);
         self::$config['tileImages'] = '';
-        $this->app->forgetInstance(Groups::class);
-        $this->app->instance(Groups::class, new class() extends Groups {
-            public function config(): array
-            {
-                return TilesTest::$config + parent::config();
-            }
-        });
+        $this->readConfig();
         self::assertObjectNotHasProperty('tiles', $this->panel(self::TAB)->props);
     }
 
@@ -112,6 +101,12 @@ final class TilesTest extends PluginTestCase
         self::assertFileExists($file);
         self::assertSame(base64_decode(substr($jpeg, 23)), file_get_contents($file));
         self::assertStringStartsWith('/design-field/blockHero/wide.jpg?v=', $response->json('url'));
+
+        // The next request reads the folder again: the layout has its picture.
+        $this->readConfig();
+        $layouts = array_column($this->panel(self::TAB)->props->tiles->layouts, 'picture', 'key');
+        self::assertStringStartsWith('/design-field/blockHero/wide.jpg?v=', $layouts['wide']);
+        self::assertNull($layouts['_default']);
 
         // The same picture serves the block inside a Matrix field: tiles are per entry type.
         $this->postJson(self::SAVE, ['block' => 'pageBuilder:blockHero', 'key' => '_default', 'image' => $jpeg])->assertOk();
@@ -155,6 +150,17 @@ final class TilesTest extends PluginTestCase
 
     // Helpers
     // =========================================================================
+
+    /** The configuration as a new request reads it: the registry is built once per request. */
+    private function readConfig(): void
+    {
+        $this->app->instance(Groups::class, new class() extends Groups {
+            public function config(): array
+            {
+                return TilesTest::$config + parent::config();
+            }
+        });
+    }
 
     /** The Preview tab's panel control, as the Ui page receives it. */
     private function panel(string $url): object
