@@ -27,7 +27,7 @@
     },
     "require": {
         "php": "^8.5",
-        "craftcms/cms": "^6.0.0-beta.1"
+        "craftcms/cms": "^6.0.0-beta.2"
     },
     "require-dev": {
         "orchestra/testbench": "^11.0",
