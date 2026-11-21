@@ -24,6 +24,7 @@ use CraftCms\Cms\Ui\Enums\ChoicePresentation;
 use CraftCms\Cms\Ui\Controls\Choice;
 use CraftCms\Cms\Ui\Controls\Textarea;
 use CraftCms\Cms\Ui\Nodes\Field as UiField;
+use CraftCms\Cms\Ui\Nodes\MarkdownContent;
 use CraftCms\Cms\Ui\Ui;
 use CraftCms\Cms\Ui\UiContext;
 use Closure;
@@ -35,6 +36,7 @@ use Override;
 use wmd\designfield\events\DefinePanelGroups;
 use wmd\designfield\fields\conditions\DesignVariantConditionRule;
 use wmd\designfield\helpers\OptionOrder;
+use wmd\designfield\http\SettingsScreen;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
@@ -380,6 +382,7 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
             UiField::make('Options of')
                 ->instructions('Which block\'s options this field shows. Leave it on the element\'s own unless one field serves a fixed set.')
                 ->control(Choice::make('profile')->withoutPlaceholder()->options($profiles)->value($this->profile)),
+            MarkdownContent::make('design-field-settings', sprintf('The configuration check and the usage of every Design field: [Design Field settings](<%s>)', SettingsScreen::url())),
         ]);
     }
 

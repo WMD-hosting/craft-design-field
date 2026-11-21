@@ -170,7 +170,7 @@ final class PluginTest extends PluginTestCase
         $field = new Design(['handle' => 'design', 'name' => 'Design', 'profile' => 'gone', 'viewMode' => Design::VIEW_SUMMARY]);
         $nodes = $field->settingsUi()->nodes();
 
-        self::assertSame(['viewMode', 'optionLayout', 'profile'], array_map(static fn($node) => $node->getControl()->path(), $nodes));
+        self::assertSame(['viewMode', 'optionLayout', 'profile', null], array_map(static fn($node) => $node->getControl()?->path(), $nodes), 'then the link to the settings page');
         self::assertSame(Design::VIEW_SUMMARY, $nodes[0]->getControl()->getValue());
         self::assertSame(['', 'blockCta', 'blockHero', 'blockNews', 'gone'], array_column($nodes[2]->getControl()->props()['options'], 'value'));
 
