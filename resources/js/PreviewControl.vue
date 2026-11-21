@@ -4,6 +4,11 @@
   change. The frame is as wide as a real desktop, tablet or phone and scaled down to fit,
   so the block's breakpoints are the device's. On a narrow screen the frame goes under
   the panel. Nothing is saved: the page it loads sets the choices for that render only.
+
+  Make tile pictures (when the server sends `tiles`): each layout of the block loads in a
+  hidden frame through the same page, is drawn to a 480 px JPEG in the browser
+  (modern-screenshot, loaded on the first click) and posted to the server, which writes it
+  next to the other tiles. Missing pictures only; with none missing, all again after asking.
 -->
 <script setup>
 import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue';
@@ -67,6 +72,131 @@ watch(choices, () => {
     timer = setTimeout(load, 300);
 });
 
+const tiles = computed(() => props.control.props?.tiles ?? null);
+const busy = ref(false);
+const status = ref('');
+
+// Laravel's CSRF cookie, sent back as the header it checks.
+function csrf() {
+    const cookie = document.cookie.split('; ').find((part) => part.startsWith('XSRF-TOKEN='));
+
+    return cookie ? decodeURIComponent(cookie.slice('XSRF-TOKEN='.length)) : '';
+}
+
+async function draw(box, domToJpeg) {
+    const doc = box.contentDocument;
+    const win = box.contentWindow;
+    const pending = [...doc.images].filter((img) => !img.complete).map((img) => new Promise((done) => {
+        img.onload = img.onerror = done;
+    }));
+
+    await Promise.race([Promise.all(pending), new Promise((done) => setTimeout(done, 4000))]);
+
+    const paint = (el) => {
+        const colour = win.getComputedStyle(el).backgroundColor;
+
+        return colour && colour !== 'transparent' && colour !== 'rgba(0, 0, 0, 0)' ? colour : null;
+    };
+    const skip = tiles.value.skip;
+
+    return domToJpeg(doc.body, {
+        width: 1280,
+        // A popup or drawer is a fixed overlay over an empty page: the window's height then.
+        height: Math.min(Math.max(Math.ceil(doc.body.getBoundingClientRect().height), 0) || 900, 900),
+        scale: 480 / 1280,
+        quality: 0.85,
+        // A transparent body shows the page's own background, not black.
+        backgroundColor: paint(doc.body) || paint(doc.documentElement) || '#ffffff',
+        // Dev toolbars and badges the site names in `tileSkip` are not part of the block.
+        filter: (node) => !(skip && node.nodeType === 1 && node.matches(skip)),
+        // The copy becomes an SVG image (XML): attribute names XML does not allow, such as
+        // Alpine's @click and :class, would make it fail and the picture come out blank.
+        onCloneNode: (root) => {
+            const strip = (el) => {
+                [...el.attributes].forEach((attribute) => {
+                    if (!/^[A-Za-z_][\w.-]*$/.test(attribute.name)) {
+                        el.removeAttribute(attribute.name);
+                    }
+                });
+                [...el.children].forEach(strip);
+            };
+
+            if (root.nodeType === 1) {
+                strip(root);
+            }
+        },
+    });
+}
+
+async function save(key, image) {
+    const response = await fetch(tiles.value.saveUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json', Accept: 'application/json', 'X-XSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest'},
+        body: JSON.stringify({block: tiles.value.block, key, image}),
+    });
+
+    if (!response.ok) {
+        throw new Error(`${response.status}`);
+    }
+}
+
+async function makeTiles() {
+    let list = tiles.value.layouts.filter((layout) => !layout.picture);
+
+    if (!list.length) {
+        if (!window.confirm(t('Every layout has a picture. Make them all again from the preview?'))) {
+            return;
+        }
+
+        list = [...tiles.value.layouts];
+    }
+
+    busy.value = true;
+    status.value = '';
+
+    const box = document.createElement('iframe');
+    box.setAttribute('aria-hidden', 'true');
+    box.tabIndex = -1;
+    box.style.cssText = 'position:fixed;left:-10000px;top:0;width:1280px;height:900px;border:0';
+    document.body.append(box);
+
+    let made = 0;
+    let failed = 0;
+
+    try {
+        const {domToJpeg} = await import('modern-screenshot');
+
+        for (const [index, layout] of list.entries()) {
+            status.value = `${index + 1} / ${list.length}: ${layout.label}`;
+
+            try {
+                await new Promise((done, fail) => {
+                    box.onload = done;
+                    box.onerror = fail;
+                    box.src = frame.value.url.replace('{design}', encodeURIComponent(JSON.stringify({variant: layout.key})));
+                });
+                // Fonts, sliders and entrances settle.
+                await new Promise((done) => setTimeout(done, 1500));
+                await save(layout.key, await draw(box, domToJpeg));
+                made++;
+            } catch {
+                failed++;
+            }
+        }
+    } finally {
+        box.remove();
+        busy.value = false;
+    }
+
+    status.value = `${made} ${t('made')}${failed ? `, ${failed} ${t('failed')}` : ''}`;
+
+    // The panel shows a layout's picture from the server: load the page again to see the new ones.
+    if (made) {
+        setTimeout(() => window.location.reload(), 1200);
+    }
+}
+
 let observer = null;
 onMounted(() => {
     load();
@@ -118,6 +248,10 @@ onBeforeUnmount(() => {
             </button>
           </div>
           <span class="df-preview__scale">{{ size.width }} px{{ scale < 1 ? ` · ${Math.round(scale * 100)}%` : '' }}</span>
+          <button v-if="tiles" type="button" class="df-preview__tiles" :disabled="busy" @click="makeTiles">
+            {{ t('Make tile pictures') }}
+          </button>
+          <span v-if="tiles" class="df-preview__status" role="status">{{ status }}</span>
         </div>
         <div ref="viewport" class="df-preview__viewport" :style="{height: `${Math.round(size.height * scale)}px`}">
           <iframe
@@ -209,6 +343,43 @@ onBeforeUnmount(() => {
   position: relative;
   outline: 2px solid var(--c-color-accent-border-loud, #2563eb);
   outline-offset: 2px;
+}
+
+.df-preview__tiles {
+  box-sizing: border-box;
+  height: var(--c-size-control-sm, 1.875rem);
+  margin: 0 0 0 auto;
+  padding: 0 0.75rem;
+  border: 1px solid var(--c-form-control-border-color, #cdd5df);
+  border-radius: var(--c-form-control-radius, 4px);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--c-text-sm, 0.875rem);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.df-preview__tiles:hover:not(:disabled) {
+  background: var(--c-color-neutral-fill-quiet, rgb(0 0 0 / 0.05));
+}
+
+.df-preview__tiles:focus-visible {
+  outline: 2px solid var(--c-color-accent-border-loud, #2563eb);
+  outline-offset: 2px;
+}
+
+.df-preview__tiles:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.df-preview__status {
+  font-size: var(--c-text-sm, 0.875rem);
+}
+
+.df-preview__status:empty {
+  display: none;
 }
 
 .df-preview__scale {

@@ -42,6 +42,11 @@ class PresetBlock extends ContentBlock
      */
     private ?array $frame = null;
 
+    /**
+     * @var ?array{saveUrl:string,block:string,skip:string,layouts:list<array{key:string,label:string,picture:?string}>}
+     */
+    private ?array $tiles = null;
+
     // Public Methods
     // =========================================================================
 
@@ -81,6 +86,23 @@ class PresetBlock extends ContentBlock
         return $this;
     }
 
+    /**
+     * Adds "Make tile pictures" to the frame (the settings page's Preview tab): each
+     * layout is drawn from the block's own page and posted to `saveUrl`.
+     *
+     * @param ?array{saveUrl:string,block:string,skip:string,layouts:list<array{key:string,label:string,picture:?string}>} $tiles Null for no button
+     * @return static
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function tiles(?array $tiles): static
+    {
+        $this->tiles = $tiles;
+
+        return $this;
+    }
+
     #[Override]
     public function component(): string
     {
@@ -103,6 +125,10 @@ class PresetBlock extends ContentBlock
         if ($this->frame !== null) {
             $props['presets'] ??= [];
             $props['frame'] = $this->frame;
+
+            if ($this->tiles !== null) {
+                $props['tiles'] = $this->tiles;
+            }
         }
 
         return $props;

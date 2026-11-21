@@ -3,6 +3,12 @@
     "file": "assets/_plugin-vue_export-helper-BDNMzG2s.js",
     "name": "_plugin-vue_export-helper"
   },
+  "node_modules/modern-screenshot/dist/index.mjs": {
+    "file": "assets/dist-CQxa6gvx.js",
+    "name": "dist",
+    "src": "node_modules/modern-screenshot/dist/index.mjs",
+    "isDynamicEntry": true
+  },
   "resources/js/BlockPickerControl.vue": {
     "file": "assets/BlockPickerControl-C_B184km.js",
     "name": "BlockPickerControl",
@@ -34,15 +40,19 @@
     ]
   },
   "resources/js/PreviewControl.vue": {
-    "file": "assets/PreviewControl-5I57zhdW.js",
+    "file": "assets/PreviewControl-2W0ffG1K.js",
     "name": "PreviewControl",
     "src": "resources/js/PreviewControl.vue",
     "isDynamicEntry": true,
     "imports": [
-      "resources/js/PresetsControl.vue"
+      "resources/js/PresetsControl.vue",
+      "resources/js/cp.ts"
+    ],
+    "dynamicImports": [
+      "node_modules/modern-screenshot/dist/index.mjs"
     ],
     "css": [
-      "assets/PreviewControl-C6GdoWO4.css"
+      "assets/PreviewControl-LnzfiZ1A.css"
     ]
   },
   "resources/js/RenderedControl.vue": {
@@ -70,7 +80,7 @@
     ]
   },
   "resources/js/cp.ts": {
-    "file": "assets/cp-B3AVLQLO.js",
+    "file": "assets/cp-BvaYEWqJ.js",
     "name": "cp",
     "src": "resources/js/cp.ts",
     "isEntry": true,
