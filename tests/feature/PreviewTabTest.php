@@ -3,10 +3,16 @@ declare(strict_types=1);
 
 namespace wmd\designfield\tests\feature;
 
+use CraftCms\Cms\Http\Middleware\RequireAdmin;
 use CraftCms\Cms\Plugin\Testing\PluginTestCase;
+use CraftCms\Cms\Support\Facades\Twig;
+use CraftCms\Cms\View\TemplateMode;
 use CraftCms\Cms\User\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
+use Twig\Source;
 use wmd\designfield\services\Groups;
 
 /**
@@ -125,16 +131,14 @@ final class PreviewTabTest extends PluginTestCase
 
         $ui = $response->json('ui');
         self::assertSame(['design'], $ui['scope']);
-
-        $fields = [];
-        foreach ($ui['nodes'] as $node) {
-            if (isset($node['control']['path'])) {
-                $fields[implode('.', (array)$node['control']['path'])] = $node;
-            }
-        }
-
-        self::assertSame(['tone', 'border', 'shade'], array_map(static fn(string $path) => substr($path, strrpos($path, '.') === false ? 0 : strrpos($path, '.') + 1), array_keys($fields)));
+        self::assertSame(['tone' => 'dark', 'border' => true, 'shade' => 'full'], $ui['values']['design'], 'the choices posted come back');
+        self::assertSame(['tone' => false, 'border' => false, 'shade' => false], self::hidden($ui['nodes']));
         self::assertSame($elements, DB::table('elements')->count(), 'nothing was saved');
+
+        // An option that waits for another one follows it: Shade shows for a dark tone only.
+        $light = $this->postJson(self::REFRESH . '?block=blockCta', ['values' => ['tone' => 'light'], 'scope' => ['design']])->json('ui');
+        self::assertSame('light', $light['values']['design']['tone']);
+        self::assertTrue(self::hidden($light['nodes'])['shade']);
 
         // The whole tab can be asked for too.
         $this->postJson(self::REFRESH . '?block=blockTeam', ['values' => ['design' => ['tone' => 'dark']], 'scope' => []])
@@ -142,8 +146,23 @@ final class PreviewTabTest extends PluginTestCase
             ->assertJsonPath('ui.values.block', 'blockTeam');
     }
 
+    public function testTheExamplePageForThePreviewUrlIsValidTwigOnCraft6(): void
+    {
+        $twig = TemplateMode::with(TemplateMode::Site, static fn() => Twig::create());
+        $source = (string)file_get_contents(dirname(__DIR__, 2) . '/examples/block-preview.twig');
+
+        // Parsing fails on a tag, filter or function Craft 6 does not have.
+        $twig->parse($twig->tokenize(new Source($source, 'block-preview.twig')));
+        self::assertArrayHasKey('Request', $twig->getGlobals(), 'the page reads the query with Request.query()');
+        self::assertArrayHasKey('craft', $twig->getGlobals());
+    }
+
     public function testOnlyAdminsRefreshThePanel(): void
     {
+        // The route says so itself: `can:accessCp` alone would let any control panel user in.
+        $route = Route::getRoutes()->match(Request::create(self::REFRESH, 'POST'));
+        self::assertContains(RequireAdmin::class, Route::gatherRouteMiddleware($route));
+
         DB::table('users')->where('id', 1)->update(['admin' => false]);
         $this->app['auth']->forgetGuards();
         $this->actingAs(User::query()->findOrFail(1));
@@ -162,6 +181,26 @@ final class PreviewTabTest extends PluginTestCase
         preg_match('#<script data-page="app" type="application/json">(.*?)</script>#s', $html, $m);
 
         return json_decode($m[1] ?? 'null', false, flags: JSON_THROW_ON_ERROR)->props;
+    }
+
+    /**
+     * Whether each option of a refreshed panel is hidden, by handle.
+     *
+     * @param list<array<string,mixed>> $nodes
+     * @return array<string,bool>
+     */
+    private static function hidden(array $nodes): array
+    {
+        $found = [];
+
+        foreach ($nodes as $node) {
+            if (isset($node['control']['path'])) {
+                $path = (array)$node['control']['path'];
+                $found[(string)end($path)] = (bool)($node['props']['hidden'] ?? false);
+            }
+        }
+
+        return $found;
     }
 
     /** @return array<string,object> The screen's nodes by uid, a field by its control's path */

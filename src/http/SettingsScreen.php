@@ -243,14 +243,15 @@ class SettingsScreen
             return $requested;
         }
 
+        // `*` names no one block, so it has no block to show beside the panel: a named one first.
         $busiest = null;
         foreach ($registry->profiles as $name => $groups) {
-            if ($busiest === null || count($groups) > count($registry->profiles[$busiest])) {
+            if ((string)$name !== Registry::FALLBACK_PROFILE && ($busiest === null || count($groups) > count($registry->profiles[$busiest]))) {
                 $busiest = (string)$name;
             }
         }
 
-        return $busiest;
+        return $busiest ?? (isset($registry->profiles[Registry::FALLBACK_PROFILE]) ? Registry::FALLBACK_PROFILE : null);
     }
 
     /**
