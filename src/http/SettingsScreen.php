@@ -359,9 +359,20 @@ class SettingsScreen
         }
 
         $inFile = array_key_exists('presets', $this->groups->fileConfig());
-        $labels = $this->blockLabels($registry) + [Registry::FALLBACK_PROFILE => 'Every block (*)'];
+        // Every block first: it is what a new row starts on.
+        $labels = [Registry::FALLBACK_PROFILE => 'Every block (*)'] + $this->blockLabels($registry);
         $labels[Registry::FALLBACK_PROFILE] = 'Every block (*)';
         $rows = SettingsRows::presetRows($registry->presets);
+
+        // A save that was refused comes back with its rows as typed, not with the saved ones.
+        $typed = $inFile ? null : session()->getOldInput('presets');
+        if (is_array($typed)) {
+            $rows = array_values(array_map(static fn(mixed $row): array => [
+                'profile' => is_string($row['profile'] ?? null) ? $row['profile'] : Registry::FALLBACK_PROFILE,
+                'name' => is_string($row['name'] ?? null) ? $row['name'] : '',
+                'choices' => is_string($row['choices'] ?? null) ? $row['choices'] : '',
+            ], array_filter($typed, is_array(...))));
+        }
 
         // A preset for a block that is gone stays selectable, so a save does not drop it unseen.
         foreach ($rows as $row) {
@@ -380,6 +391,8 @@ class SettingsScreen
                             'name' => ['heading' => 'Preset', 'type' => 'singleline'],
                             'choices' => ['heading' => 'Choices', 'type' => 'singleline', 'code' => true, 'placeholder' => 'group=key, group=key'],
                         ])
+                        // A new row's dropdown shows its first choice but holds nothing until it is changed.
+                        ->defaultValues(['profile' => Registry::FALLBACK_PROFILE])
                         ->allowAdd()
                         ->allowDelete()
                         ->allowReorder()

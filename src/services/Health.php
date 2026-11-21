@@ -41,6 +41,7 @@ class Health
         private readonly TemplateChecker $templateChecker,
         private readonly EntryTypes $entryTypes,
         private readonly Fields $fields,
+        private readonly SettingsFile $settingsFile,
     ) {
     }
 
@@ -66,6 +67,7 @@ class Health
         }
 
         return array_merge(
+            $this->settingsFile->isBroken() ? [$this->_finding(self::ERROR, sprintf('config/%s is not valid JSON, so the looks and presets saved on the settings page are not applied. Fix the file, or delete it and save them again.', SettingsFile::FILE))] : [],
             $this->_unknownProfiles($registry),
             $this->_fieldProfiles($registry),
             array_map(fn(string $message) => $this->_finding(self::ERROR, $message), $registry->invalidPresetChoices()),

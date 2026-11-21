@@ -17,6 +17,7 @@ use Illuminate\Testing\TestResponse;
 use wmd\designfield\fields\Design;
 use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
+use wmd\designfield\services\Health;
 use wmd\designfield\services\SettingsFile;
 
 /**
@@ -118,18 +119,18 @@ final class LooksPresetsTest extends PluginTestCase
 
         $table = self::field($props, 'presets');
         self::assertSame('craft:table', $table->component);
-        self::assertSame(['blockCta', 'blockTeam', '*'], array_column($table->props->columns->profile->options, 'value'));
+        self::assertSame(['*', 'blockCta', 'blockTeam'], array_column($table->props->columns->profile->options, 'value'));
 
         $this->post(self::SAVE . 'presets', ['presets' => [
             ['profile' => 'blockCta', 'name' => 'Night', 'choices' => 'tone=dark, border=on'],
             ['profile' => '*', 'name' => 'Plain', 'choices' => 'tone=light'],
-            ['profile' => 'blockCta', 'name' => '', 'choices' => 'tone=dark'],
+            ['profile' => '*', 'name' => '', 'choices' => ''],
         ]])->assertRedirect();
 
         self::assertSame(
             ['presets' => ['blockCta' => ['Night' => ['tone' => 'dark', 'border' => 'on']], '*' => ['Plain' => ['tone' => 'light']]]],
             json_decode((string)file_get_contents($this->file), true),
-            'a row without a name is not a preset',
+            'an empty row is not a preset',
         );
 
         // The next request: the tab shows the rows, and the block's panel has the presets.
@@ -160,6 +161,48 @@ final class LooksPresetsTest extends PluginTestCase
         }
 
         self::assertFileDoesNotExist($this->file);
+    }
+
+    public function testARowThatLacksSomethingIsRefusedAndComesBackAsTyped(): void
+    {
+        $table = self::field(self::props($this->get(self::PAGE . '?tab=presets')), 'presets');
+        self::assertSame('*', $table->props->defaultValues->profile ?? $table->props->rowDefaults->profile ?? null, 'a new row starts on every block');
+        self::assertSame('*', $table->props->columns->profile->options[0]->value);
+
+        // As the table posts a new row whose Block was not touched before the default was there.
+        $rows = [
+            ['profile' => 'blockCta', 'name' => 'Night', 'choices' => 'tone=dark'],
+            ['profile' => null, 'name' => 'Lost', 'choices' => 'tone=light'],
+            ['profile' => '*', 'name' => 'Half', 'choices' => ''],
+            ['profile' => '*', 'name' => '', 'choices' => ''],
+        ];
+        $response = $this->from(self::PAGE . '?tab=presets')->post(self::SAVE . 'presets', ['presets' => $rows]);
+        $response->assertSessionHasErrors('presets');
+        self::assertSame(['Row 2: a preset needs a block, a name and its choices.', 'Row 3: a preset needs a block, a name and its choices.'], session('errors')->get('presets'));
+        self::assertFileDoesNotExist($this->file, 'not even the good row');
+
+        // Back on the tab: the rows as typed, and the reason.
+        $props = self::props($this->get(self::PAGE . '?tab=presets'));
+        self::assertSame(['Night', 'Lost', 'Half', ''], array_column($props->ui->values->presets, 'name'));
+        self::assertStringContainsString('Row 2', json_encode($props->errors ?? $props->ui->errors));
+    }
+
+    public function testSavingPresetsKeepsTheLooksAndABrokenFileIsAFinding(): void
+    {
+        File::ensureDirectoryExists(dirname($this->file));
+        File::put($this->file, json_encode(['inputs' => ['groups' => ['tone' => ['input' => 'select']]]]));
+
+        $this->post(self::SAVE . 'presets', ['presets' => [['profile' => '*', 'name' => 'Plain', 'choices' => 'tone=light']]])->assertRedirect();
+        $saved = json_decode((string)file_get_contents($this->file), true);
+        self::assertSame(['tone' => ['input' => 'select', 'iconsOnly' => false]], $saved['inputs']['groups']);
+        self::assertSame(['*' => ['Plain' => ['tone' => 'light']]], $saved['presets']);
+
+        // A merge conflict left in the committed file: nothing of it applies, and the check says so.
+        self::assertSame([], array_filter($this->app->make(Health::class)->check(), static fn(array $finding) => str_contains($finding['message'], 'settings.json')));
+        File::put($this->file, "<<<<<<< HEAD\n{}");
+        $this->readConfig();
+        $findings = array_values(array_filter($this->app->make(Health::class)->check(), static fn(array $finding) => str_contains($finding['message'], 'settings.json')));
+        self::assertSame(Health::ERROR, $findings[0]['level']);
     }
 
     public function testPresetsSetInTheConfigFileShowReadOnly(): void

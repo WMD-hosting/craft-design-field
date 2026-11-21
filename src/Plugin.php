@@ -88,7 +88,9 @@ class Plugin extends BasePlugin
     #[Override]
     public function register(): void
     {
-        $this->app->singleton(Groups::class);
+        // Scoped: a long-running worker reads the configuration again for each request or
+        // job, so a look saved on the settings page shows without a restart.
+        $this->app->scoped(Groups::class);
     }
 
     #[Override]

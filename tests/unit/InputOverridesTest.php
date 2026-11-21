@@ -27,6 +27,37 @@ final class InputOverridesTest extends TestCase
         ], $extra), static fn() => []);
     }
 
+    public function testWhatThePageSavedIsLaidOverTheConfigFilesInputsEntryByEntry(): void
+    {
+        $merged = InputOverrides::merge(
+            [
+                'styles' => ['icons' => 'select'],
+                'groups' => ['tone' => ['input' => 'swatches'], 'spacing' => ['input' => 'slider']],
+                'profiles' => ['blockCta' => ['tone' => ['input' => 'select'], 'spacing' => ['input' => 'buttons']]],
+                'meta' => ['tone' => ['dark' => ['label' => 'Night'], 'light' => ['label' => 'Day']]],
+                'hidden' => ['blockCta' => ['tone' => ['dark']]],
+            ],
+            [
+                'groups' => ['tone' => ['input' => 'select']],
+                'sections' => ['tone' => 'Colour'],
+                'profiles' => ['blockCta' => ['tone' => ['input' => 'buttons', 'iconsOnly' => true]], 'blockTeam' => ['tone' => ['input' => 'select']]],
+                'meta' => ['tone' => ['dark' => ['label' => 'Dusk']]],
+                'hidden' => ['blockCta' => ['tone' => ['light']]],
+            ],
+        );
+
+        self::assertSame(['icons' => 'select'], $merged['styles'], 'kept from the file');
+        self::assertSame('select', $merged['groups']['tone']['input'], 'the page wins');
+        self::assertSame('slider', $merged['groups']['spacing']['input']);
+        self::assertSame(['tone' => 'Colour'], $merged['sections']);
+        self::assertTrue($merged['profiles']['blockCta']['tone']['iconsOnly'], 'one option of one block replaced');
+        self::assertSame('buttons', $merged['profiles']['blockCta']['spacing']['input'], 'its other options kept');
+        self::assertSame('select', $merged['profiles']['blockTeam']['tone']['input']);
+        self::assertSame(['dark' => ['label' => 'Dusk'], 'light' => ['label' => 'Day']], $merged['meta']['tone']);
+        self::assertSame(['light'], $merged['hidden']['blockCta']['tone'], 'a list is replaced whole');
+        self::assertSame([], InputOverrides::merge(null, 'nonsense')['groups']);
+    }
+
     public function testCleanKeepsOnlyKnownStylesAndTwoKeys(): void
     {
         $clean = InputOverrides::clean([

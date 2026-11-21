@@ -93,6 +93,28 @@ class SettingsFile
     }
 
     /**
+     * Whether there is a file that cannot be read as what the page writes (a merge
+     * conflict left in it, a hand edit): its looks and presets are then not applied.
+     *
+     * @return bool
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function isBroken(): bool
+    {
+        if (!is_file($this->path())) {
+            return false;
+        }
+
+        try {
+            return !is_array(Json::decode((string)file_get_contents($this->path())));
+        } catch (Throwable) {
+            return true;
+        }
+    }
+
+    /**
      * Writes the looks and presets; with nothing left to keep the file goes.
      *
      * @param array<string,mixed> $inputs

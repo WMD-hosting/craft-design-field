@@ -41,7 +41,8 @@ class SettingsController
 
     /**
      * The Presets tab: its rows become the saved `presets`. Refused, with the reason
-     * on the table, when a choice is not `group=key` or names a group or key no block has.
+     * on the table, when a row lacks its block, name or choices, a choice is not `group=key`,
+     * or it names a group or key no block has.
      *
      * @param Request $request `presets`: rows of `profile`, `name` and `choices`
      * @return Response
@@ -56,6 +57,21 @@ class SettingsController
         abort_if(array_key_exists('presets', $this->groups->fileConfig()), 409, 'Presets are set in the config file.');
 
         $rows = $request->validate(['presets' => ['nullable', 'array'], 'presets.*' => ['array']])['presets'] ?? [];
+
+        // A row with something in it is a preset someone meant: say what it lacks instead
+        // of leaving it out of a save that reports success. An empty row is just skipped.
+        $problems = [];
+        foreach (array_values($rows) as $i => $row) {
+            $filled = array_map(static fn(string $key): bool => is_scalar($row[$key] ?? null) && trim((string)$row[$key]) !== '', ['profile' => 'profile', 'name' => 'name', 'choices' => 'choices']);
+
+            if (($filled['name'] || $filled['choices']) && in_array(false, $filled, true)) {
+                $problems[] = sprintf('Row %d: a preset needs a block, a name and its choices.', $i + 1);
+            }
+        }
+
+        if ($problems !== []) {
+            throw ValidationException::withMessages(['presets' => $problems]);
+        }
 
         try {
             $presets = SettingsRows::presets($rows);
