@@ -181,6 +181,8 @@ final class LabelsIconsTest extends PluginTestCase
         self::assertObjectNotHasProperty('submit', $props);
         self::assertObjectNotHasProperty('refreshUrl', $props);
         self::assertSame('readOnly', self::controls($props->ui->nodes)['labels']->mode);
+        self::assertArrayNotHasKey('try', self::controls($props->ui->nodes), 'nothing to try where nothing can be changed');
+        self::assertArrayNotHasKey('try', self::controls(self::props($this->get(self::PAGE))->ui->nodes));
         self::assertSame('Night', $props->ui->values->labels->k_dark->label);
 
         $this->post(self::SAVE . '?option=tone', ['labels' => []])->assertForbidden();
@@ -212,6 +214,7 @@ final class LabelsIconsTest extends PluginTestCase
         self::assertSame(['', 'blockCta', 'blockTeam'], array_column($controls['try']->props->options, 'value'));
         self::assertTrue($controls['try']->reactive);
         self::assertArrayNotHasKey('design', $controls);
+        self::assertFalse($controls['styles.buttons']->reactive ?? false, 'with no block picked a swap asks for nothing');
 
         // As the Ui page posts a pick of the block: the whole form, unsaved looks in it.
         $ui = $this->postJson(self::REFRESH, ['scope' => [], 'values' => [
@@ -228,6 +231,7 @@ final class LabelsIconsTest extends PluginTestCase
         self::assertSame('select', $controls['design.tone']->props->presentation, 'the row\'s look');
         self::assertSame('craft:choice', $controls['design.border']->component, 'the swapped style: a toggle as a dropdown');
         self::assertSame('buttons', $controls['design.columns']->props->presentation, 'untouched');
+        self::assertTrue($controls['styles.toggle']->reactive, 'with a block picked the panel follows a swap');
         self::assertFalse($controls['design']->uis[0]->refreshable, 'a pick in this panel does not ask for it again: the form\'s looks would be lost');
 
         // The form comes back as typed, not as saved.

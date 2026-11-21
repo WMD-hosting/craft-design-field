@@ -419,6 +419,7 @@ class SettingsScreen
                 ->description('Show every option of one style another way, on every block: for example Icons as Labels only, for editors who prefer words. An option that cannot take the new style keeps its own, and an option\'s own look below still wins.'),
         ];
 
+        $trying = is_string($typed[self::TRY] ?? null) && $typed[self::TRY] !== '';
         $values = ['styles' => [], 'looks' => []];
         foreach ($used as $from => $count) {
             $values['styles'][$from] = $shown['styles'][$from] ?? '';
@@ -433,8 +434,8 @@ class SettingsScreen
                 ? sprintf('%s (swapped)', StyleChoices::LABELS[$from] ?? $from)
                 : sprintf('%s (%d %s)', StyleChoices::LABELS[$from] ?? $from, $count, $count === 1 ? 'option' : 'options'))
                 ->width(25)
-                // The block under "Try these looks" follows a swap at once.
-                ->control(Choice::make(['styles', $from])->withoutPlaceholder()->options($options)->reactive());
+                // The block under "Try these looks" follows a swap at once; with none picked a swap asks for nothing.
+                ->control(Choice::make(['styles', $from])->withoutPlaceholder()->options($options)->reactive($trying));
         }
 
         $cells = [];
@@ -771,6 +772,11 @@ class SettingsScreen
      */
     private function tryNodes(Registry $registry, ?array $typed, array $blocks, callable $inputs): array
     {
+        // Nothing to try where nothing can be changed.
+        if (!$this->generalConfig->allowAdminChanges) {
+            return [[], []];
+        }
+
         $labels = array_intersect_key($this->blockLabels($registry), array_flip($blocks));
         $try = is_string($typed[self::TRY] ?? null) && isset($labels[$typed[self::TRY]]) ? $typed[self::TRY] : '';
         $nodes = [
