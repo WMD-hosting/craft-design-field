@@ -176,6 +176,13 @@ async function makeTiles() {
                     box.onerror = fail;
                     box.src = frame.value.url.replace('{design}', encodeURIComponent(JSON.stringify({variant: layout.key})));
                 });
+                // An error page (a gateway timeout, a sign-in that ran out) is no picture of the block.
+                const loaded = box.contentWindow.performance?.getEntriesByType?.('navigation')?.[0]?.responseStatus;
+
+                if (loaded >= 400) {
+                    throw new Error(`${loaded}`);
+                }
+
                 // Fonts, sliders and entrances settle.
                 await new Promise((done) => setTimeout(done, 1500));
                 await save(layout.key, await draw(box, domToJpeg));
