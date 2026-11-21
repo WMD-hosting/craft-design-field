@@ -164,6 +164,7 @@ class Groups
             'tileImages' => '/design-field/{type}/{key}.jpg',
             'previewStylesheet' => '',
             'blockPreviewUrl' => '',
+            'tileSkip' => '',
             'previewAttributes' => [],
         ];
     }

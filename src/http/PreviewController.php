@@ -7,22 +7,39 @@
 
 namespace wmd\designfield\http;
 
+use CraftCms\Cms\Support\File;
 use CraftCms\Cms\Ui\UiContext;
 use CraftCms\Cms\Ui\UiResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
+use wmd\designfield\services\Groups;
 
 /**
- * What the settings page's Preview tab asks the server for. Nothing here saves.
+ * What the settings page's Preview tab asks the server for. Only saveTile() writes:
+ * a picture file, never a setting or an element.
  *
  * @author WMD
  * @since 2.0.0
  */
 class PreviewController
 {
+    // Const Properties
+    // =========================================================================
+
+    /**
+     * Tile width in pixels.
+     */
+    public const TILE_WIDTH = 480;
+
+    /**
+     * Largest accepted picture, in bytes.
+     */
+    public const TILE_MAX_BYTES = 2_000_000;
+
     public function __construct(
         private readonly SettingsScreen $screen,
+        private readonly Groups $groups,
     ) {
     }
 
@@ -63,5 +80,50 @@ class PreviewController
         }
 
         return new JsonResponse(['ui' => $payload]);
+    }
+
+    /**
+     * Saves a layout's picture, drawn in the browser from the block's preview page
+     * ("Make tile pictures"), to `tileImages` under the web root.
+     *
+     * Refused unless the block has that layout and the picture is a 480 px wide JPEG
+     * under 2 MB: the path is built from the block's type and the layout key only.
+     *
+     * @param Request $request `block` (a profile name), `key` (a layout of it), `image` (a JPEG data URL)
+     * @return JsonResponse The picture's URL
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function saveTile(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'block' => ['required', 'string'],
+            'key' => ['required', 'string'],
+            'image' => ['required', 'string'],
+        ]);
+
+        try {
+            $layouts = $this->groups->getRegistry()->profiles[$data['block']]['variant'] ?? null;
+        } catch (InvalidArgumentException $e) {
+            abort(422, $e->getMessage());
+        }
+
+        $type = SettingsScreen::blockType($data['block']);
+        $path = $this->groups->tilePath($type, $data['key']);
+
+        abort_if($layouts === null || !isset($layouts->options[$data['key']]) || $path === null, 422, sprintf('Unknown layout %s / %s.', $data['block'], $data['key']));
+
+        $prefix = 'data:image/jpeg;base64,';
+        $jpeg = str_starts_with($data['image'], $prefix) ? base64_decode(substr($data['image'], strlen($prefix)), true) : false;
+        $size = is_string($jpeg) && strlen($jpeg) <= self::TILE_MAX_BYTES && str_starts_with($jpeg, "\xFF\xD8\xFF") ? @getimagesizefromstring($jpeg) : false;
+
+        abort_if($size === false || $size[0] !== self::TILE_WIDTH || $size[2] !== IMAGETYPE_JPEG, 422, 'The picture must be a 480 px wide JPEG under 2 MB.');
+
+        $file = public_path(ltrim($path, '/'));
+        File::ensureDirectoryExists(dirname($file));
+        File::put($file, $jpeg);
+
+        return new JsonResponse(['url' => $this->groups->tileImage($type, $data['key'])]);
     }
 }

@@ -5,6 +5,7 @@
 ### Added
 - The settings page is back (Settings → Plugins → Design Field, admins only), with two tabs that only read, so it also opens where admin changes are off. **Configuration** shows what `design-field:check` prints: the configuration check and the template check. **Usage** shows the usage report, one row per block, for all time or the last 12, 6 or 3 months; a run over all time also refreshes the "Most used" counts. A Design field's settings link to the page.
 - The settings page has its **Preview** tab back: the real Design panel of any block with its defaults and presets, and nothing in it is saved. With `blockPreviewUrl` in the config file the block itself renders next to the panel, at desktop, tablet or mobile width, and follows each change. `examples/block-preview.twig` is back as a page for it, in its Craft 6 form.
+- **Make tile pictures** is back on the Preview tab: the layout pictures a block is missing are drawn in the browser from `blockPreviewUrl` and saved to `tileImages`, where admin changes are allowed. `tileSkip` leaves things such as a dev toolbar out of the pictures.
 
 ## 2.0.0-beta.2 - 2026-11-21
 

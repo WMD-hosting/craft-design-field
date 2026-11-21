@@ -7,6 +7,7 @@
 
 namespace wmd\designfield\http;
 
+use CraftCms\Cms\Config\GeneralConfig;
 use CraftCms\Cms\Cp\Data\NavItem;
 use CraftCms\Cms\Entry\EntryTypes;
 use CraftCms\Cms\Field\Fields;
@@ -38,8 +39,9 @@ use wmd\designfield\web\controls\PresetBlock;
 /**
  * The plugin's settings page (Settings → Plugins → Design Field): the configuration
  * check, the usage report and the preview of a block's panel, each on its own tab. It
- * only reads: the config file is the configuration, so there is nothing to save and
- * the page opens with admin changes off.
+ * saves no setting: the config file is the configuration, so the page opens with admin
+ * changes off. Only "Make tile pictures" on the Preview tab writes (picture files), and
+ * only where admin changes are allowed.
  *
  * A tab is a URL (`?tab=`), so only the open one is built: the usage report reads every entry.
  *
@@ -82,6 +84,7 @@ class SettingsScreen
         private readonly Usage $usage,
         private readonly EntryTypes $entryTypes,
         private readonly Fields $fields,
+        private readonly GeneralConfig $generalConfig,
     ) {
     }
 
@@ -170,7 +173,7 @@ class SettingsScreen
                 }
             }
 
-            $panel->frame($frame, $toggles);
+            $panel->frame($frame, $toggles)->tiles($frame === null ? null : $this->tiles($registry, $block));
         }
 
         $keys = [];
@@ -220,6 +223,20 @@ class SettingsScreen
     public static function url(string $tab = 'configuration', array $params = []): string
     {
         return Url::cpUrl(self::PATH, ($tab === array_key_first(self::TABS) ? [] : ['tab' => $tab]) + $params);
+    }
+
+    /**
+     * The entry type a profile is for: `pageBuilder:blockTeam` and `blockTeam` are both `blockTeam`.
+     *
+     * @param string $block A profile name
+     * @return string
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public static function blockType(string $block): string
+    {
+        return str_contains($block, ':') ? substr($block, strrpos($block, ':') + 1) : $block;
     }
 
     // Private Methods
@@ -289,13 +306,43 @@ class SettingsScreen
     private function frameUrl(string $block): ?string
     {
         $url = trim((string)$this->groups->config()['blockPreviewUrl']);
-        $type = str_contains($block, ':') ? substr($block, strpos($block, ':') + 1) : $block;
 
         if ($url === '' || $block === Registry::FALLBACK_PROFILE) {
             return null;
         }
 
-        return str_replace('{type}', rawurlencode($type), $url);
+        return str_replace('{type}', rawurlencode(self::blockType($block)), $url);
+    }
+
+    /**
+     * What "Make tile pictures" needs for a block: its layouts, each with its picture or
+     * null when it has none yet, where a picture is saved, and what to leave out of one.
+     *
+     * @param Registry $registry
+     * @param string $block A profile name
+     * @return ?array{saveUrl:string,block:string,skip:string,layouts:list<array{key:string,label:string,picture:?string}>} Null when the block has no layout list, tile pictures are off (`tileImages`), or admin changes are not allowed: the pictures are site files
+     */
+    private function tiles(Registry $registry, string $block): ?array
+    {
+        $layouts = $registry->profiles[$block]['variant'] ?? null;
+
+        if ($layouts === null || !$this->generalConfig->allowAdminChanges || $this->groups->tilePath(self::blockType($block), '_default') === null) {
+            return null;
+        }
+
+        $list = [];
+        foreach ($layouts->options as $key => $option) {
+            if ($key !== Group::AUTO) {
+                $list[] = ['key' => (string)$key, 'label' => $option['label'], 'picture' => $option['image']];
+            }
+        }
+
+        return [
+            'saveUrl' => Url::cpUrl('design-field/tiles/save'),
+            'block' => $block,
+            'skip' => trim((string)$this->groups->config()['tileSkip']),
+            'layouts' => $list,
+        ];
     }
 
     /**
