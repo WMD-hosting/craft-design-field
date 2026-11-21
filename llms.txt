@@ -44,12 +44,12 @@ php artisan design-field:usage [--types=a,b] [--all] [--min=N] [--sample=N] [--m
 ?tab=configuration (default) - the findings of design-field:check: configuration check and template check
 ?tab=looks - quick switch (inputs.styles: every option of one style shown as another) and one row per option (inputs.groups: its look on every block; inputs.sections: its panel heading); POST design-field/settings/looks
 ?tab=presets - one row per preset: block or *, name, choices as `group=key, group=key`; POST design-field/settings/presets; refused when a choice names a group or key no block has; read only when the config file has `presets`
-?tab=preview&block=<profile> - the real Design panel of that block (defaults, presets), nothing saved; unknown or no block shows the one with the most options; with blockPreviewUrl the block itself in a frame beside it (desktop 1280 / tablet 768 / mobile 375), reloaded on each change
+?tab=preview&block=<profile> - the real Design panel of that block (defaults, presets), its choices never saved; the panel ends with "Customize this block": one dropdown per option (panel value design._looks.<group>: a look, '' = as on every block), the panel is rebuilt with the picked looks before they are saved (POST design-field/preview/ui), Save posts to design-field/settings/block-looks?block=<profile> and replaces inputs.profiles[<profile>] only (admin changes allowed; a look the option cannot take there is refused); unknown or no block shows the one with the most options; with blockPreviewUrl the block itself in a frame beside it (desktop 1280 / tablet 768 / mobile 375), reloaded on each change
 Make tile pictures (button on ?tab=preview; block with a `variant` group, blockPreviewUrl and tileImages set, admin changes allowed) - draws each layout without a picture from blockPreviewUrl with design={"variant": key} to a 480 px JPEG in the browser and posts it to design-field/tiles/save, which writes tileImages ({type}/{key}.jpg under the web root)
 ?tab=usage - nothing is counted until &run=1; &months=12|6|3 limits it to entries saved in that period; one row per block (never changed, always the same choice); a run without months refreshes the "Most used" counts
 
 ## Not in 2.x (1.x only)
-settings page: tables for groups/options/profiles, per-block looks, other labels and icons, Tidy up; import/adopt/migrate
+settings page: tables for groups/options/profiles, other labels and icons, Tidy up; import/adopt/migrate
 
 ## Events
 wmd\designfield\events\DefinePanelGroups (Laravel event; Craft 5: Design::EVENT_DEFINE_PANEL_GROUPS): element, groups (replace a Group, e.g. ->withHidden([keys])), keys (read only), hiddenGroups[] (leave an option out of the panel; value kept)

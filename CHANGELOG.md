@@ -4,6 +4,7 @@
 
 ### Added
 - The settings page has its **Looks** and **Presets** tabs back. Looks: a quick switch of one input style for another on every block, and one row per option with its look and the section it is listed under. Presets: one row per preset, checked against the options before it is saved. Both save to `config/craft/design-field.settings.json`, beside the config file, only where admin changes are allowed: commit that file with the site.
+- **Customize this block** is back on the settings page's Preview tab: a look for one block only, one dropdown per option at the end of the block's panel. The panel shows the look as soon as it is picked, before it is saved; Save writes the looks of that block to `config/craft/design-field.settings.json` (`inputs.profiles`) and keeps everything else in the file. The choices made in the panel itself are still never saved.
 - The configuration check also reports a `design-field.settings.json` that is not valid JSON, for example after a merge conflict: nothing saved on the page applies until it is fixed.
 
 ### Changed

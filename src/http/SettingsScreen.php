@@ -49,9 +49,9 @@ use wmd\designfield\web\controls\PresetBlock;
  * check, looks, the preview of a block's panel, presets and the usage report, each on
  * its own tab. It
  * opens with admin changes off; what it writes, it writes only where they are allowed,
- * and only site files: the Looks and Presets tabs save to the settings file beside the
- * config file (services/SettingsFile), and "Make tile pictures" on the Preview tab saves
- * picture files. Groups, options and profiles stay in the config file.
+ * and only site files: the Looks and Presets tabs, and "Customize this block" on the
+ * Preview tab, save to the settings file beside the config file (services/SettingsFile),
+ * and "Make tile pictures" on the Preview tab saves picture files. Groups, options and profiles stay in the config file.
  *
  * A tab is a URL (`?tab=`), so only the open one is built: the usage report reads every entry.
  *
