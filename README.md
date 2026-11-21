@@ -8,7 +8,9 @@ One field for every design option of a block. Tone, spacing, layout, columns, al
 - One reader, `craft.designField.of(block)`, works for the Design field, for the old option fields it replaces, and for showcase mock data.
 - Coding agents read and write the field through Craft's own MCP server, with every option and its choices in the schema.
 
-![The Design panel in the entry editor: presets, layout tiles, swatches, sections](resources/screenshots/panel.png)
+![The Design panel on Craft 6: presets, layout pictures and colour swatches, in sections](resources/screenshots/panel.png)
+
+![Further down the same panel: icon buttons, a slider with named stops and motion cards](resources/screenshots/panel-options.png)
 
 ## Which version
 
