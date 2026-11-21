@@ -1,10 +1,14 @@
 # Release Notes for Design Field
 
-## 2.0.0-alpha.1 - Unreleased
+## 2.0.0-beta.1 - Unreleased
 
-> {warning} Design Field 2 is for Craft CMS 6 and not complete yet. Craft 5 sites stay on 1.x.
+> {warning} Design Field 2 is for Craft CMS 6 and is a beta, as Craft 6 is. The parts of 1.x it does not have yet are listed under Removed. Craft 5 sites stay on 1.x.
 
 ### Added
+- Presets are back: a row of buttons above a block's options, and clicking one sets its choices in one change. They are set in the config file (`presets`), a block's own first, then the `*` ones.
+- Rendered tiles are back: choices drawn as small cards with the site's own stylesheet (`previewStylesheet`, `previewAttributes`), so Corner radius and Card style show the brand's real radius, border and shadow.
+- Sliders name every stop under the track, with Block default as its own button beside it.
+- Buttons that show a drawing instead of a label (icons, position cells) read out the chosen name.
 - Layout pictures show at the Craft 5 size again: 146px wide instead of Craft's 85px card picture.
 - The layout comes first in the Design panel, at the top of its section, ahead of options without a section: it is the first thing an editor picks, and most other options follow it.
 - A larger look at a layout tile: hovering it, or reaching it with the keyboard, shows the picture at its real size with the layout's name, above or below the tile's row. It opens after a short pause, closes at once, and never selects or saves. Touch has no hover, so a tap selects as before.
@@ -21,7 +25,7 @@
 - A section whose options all wait for another choice (Colour & style and Spacing on an image block with the caption layout) no longer shows its heading over an empty area; it comes back with its options when the layout changes.
 
 ### Changed
-- Requires Craft CMS 6.0.0-beta.1 and PHP 8.5.
+- Requires Craft CMS 6.0.0-beta.2 and PHP 8.5.
 - The Design panel is built on Craft's own controls, one per option: buttons, dropdowns, switches, sliders, position grids, colour chips, and cards with a picture, under the same section headings. An option that only applies to another choice shows or hides while editing, as Craft refreshes the form after each change.
 - The field settings are back: show the options as a panel, as a summary (a line saying what is set, the options behind Edit) or collapsed (a closed section that says how many options changed); lay them out in sections, sections side by side, or inline; and which block's options the field shows. A profile's `'_view'` still replaces the field's setting, and a new element starts open.
 - Layout pictures come from the web root again (`tileImages` in the config file, `/design-field/{type}/{key}.jpg` by default). A picture whose file is missing is left out instead of showing as a broken image.
@@ -35,7 +39,7 @@
 - Saving a block with a switch failed with "“1” is not an option of …": the editor posts a switch as true or false, which now means its on and off choice.
 
 ### Removed
-- Not ported yet: presets (Craft's controls have no action that sets several options at once), the "Most used" list in long dropdowns, the plugin settings page, the block preview, and the starter stylesheet registration (`craft.designField.starterCss()` does nothing).
+- Not ported yet: the plugin settings page (so the config file is the whole configuration), the block preview and Make tile pictures, the "Most used" list in long dropdowns, `Design::EVENT_DEFINE_PANEL_GROUPS`, and the starter stylesheet registration (`craft.designField.starterCss()` does nothing).
 - The Craft 5 migration tools (`adopt`, `migrate`, `import`, Tidy up) stay on 1.x.
 
 ## 1.0.7 - 2026-10-29
