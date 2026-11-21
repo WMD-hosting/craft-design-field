@@ -1,5 +1,13 @@
 # Release Notes for Design Field
 
+## Unreleased
+
+### Added
+- The settings page has its **Looks** and **Presets** tabs back. Looks: a quick switch of one input style for another on every block, and one row per option with its look and the section it is listed under. Presets: one row per preset, checked against the options before it is saved. Both save to `config/craft/design-field.settings.json`, beside the config file, only where admin changes are allowed: commit that file with the site.
+
+### Changed
+- The configuration is read from two files: `config/craft/design-field.php`, then `config/craft/design-field.settings.json` when the settings page has written it. Its looks win entry by entry; its presets apply unless the config file has a `presets` key. A site without that file reads exactly as before.
+
 ## 2.0.0-beta.3 - 2026-11-21
 
 ### Added

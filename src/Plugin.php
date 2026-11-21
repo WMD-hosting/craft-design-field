@@ -45,8 +45,8 @@ class Plugin extends BasePlugin
     public bool $config = false;
 
     /**
-     * The settings page saves no setting (the configuration check, the usage report and
-     * the preview), so it also opens where admin changes are off.
+     * The settings page has no settings model: it opens read only where admin changes are
+     * off, and what it saves goes to site files through its own routes (routes/cp.php).
      */
     public bool $hasCpSettings = true;
 
