@@ -16,7 +16,7 @@ the whole configuration: nothing on the page saves a setting until stage 4 is de
   (`CpScreenResponse::subnav()` with `NavItem`s, the pattern of WMD SEO's Global SEO screen). In-page Ui
   tabs would build every tab on each load, and the usage report reads every entry.
 - **What draws it:** `wmd\designfield\http\SettingsScreen` builds a `CpScreenResponse` from Craft's Ui
-  nodes (`Callout`, `Heading`, `MarkdownContent`, `Table`), read only, with no submit. Stage 1 needs no
+  nodes (`Callout`, `Heading`, `MarkdownContent`, `Table`) with no submit action. Stage 1 needs no
   template, no script and no asset build.
 - **Tests:** feature tests in `tests/feature/` on `PluginTestCase` open the URL as user 1 and read the
   Inertia page props (the nodes by uid), with the configuration given through a `Groups` double as the
@@ -36,8 +36,10 @@ the whole configuration: nothing on the page saves a setting until stage 4 is de
   finding.
 - **Usage:** runs only when asked (`?tab=usage&run=1`), because it reads every entry. A period filter
   (`months=0|12|6|3`: all time, last 12, 6, 3 months), three totals (blocks with findings, options never
-  changed, always the same choice), "Never changed in any block", then one table per block: option,
-  finding, and each choice with its count. Blocks with fewer than five entries are marked as a hint. A
+  changed, always the same choice), "Never changed in any block", then one table with a row per block:
+  the options nobody changed from the default and the ones where every entry picked the same choice
+  (one table per block ran to 400 rows on a real site). It can be searched and sorted. Blocks with
+  fewer than five entries are marked as a hint and come last. A
   run over all time also refreshes "Most used" through `Usage::storeCounts()`, as on 1.x; a run limited
   to a period does not, or the counts would shrink to that window.
 - **Field settings:** the Design field's settings end with a link to the page.

@@ -19,9 +19,9 @@ One field for every design option of a block. Tone, spacing, layout, columns, al
 | 6 | 2.x (beta) | [`2.x`](https://github.com/WMD-hosting/craft-design-field/tree/2.x) |
 | 5 | 1.x | [`main`](https://github.com/WMD-hosting/craft-design-field/tree/main) |
 
-Design Field 2 is a beta, as Craft 6 is. The field, its panel, the templates API, the condition rule, the console commands and the MCP schema are in. These parts of 1.x are **not in 2.x yet**:
+Design Field 2 is a beta, as Craft 6 is. The field, its panel, the templates API, the condition rule, the console commands, the MCP schema and the [settings page](#the-settings-page) with its Configuration and Usage tabs are in. These parts of 1.x are **not in 2.x yet**:
 
-- the plugin settings page (Looks, Preview, Presets, Tidy up and Configuration tabs), so the configuration is the config file only;
+- the Looks, Preview and Presets tabs of the settings page: looks and presets are set in the config file, which is the whole configuration (Tidy up stays on 1.x);
 - the live block preview and **Make tile pictures**;
 - the tools that move a Craft 5 site's option fields onto the field (`import`, `adopt`, `migrate`). Run those on Craft 5 with 1.x.
 
@@ -200,6 +200,17 @@ A preset is a named set of choices shown as a button above a block's options. Cl
 
 A block shows its own presets first, then the `*` ones; its own wins when both use the same name. A preset sets only the groups the block has, and is hidden when none apply, so one `*` list serves every block.
 
+## The settings page
+
+![The settings page: the configuration check](resources/screenshots/settings-configuration.png)
+
+**Settings → Plugins → Design Field** (admins only; a Design field's settings link to it). It only reads, so it also opens where admin changes are off.
+
+- **Configuration**: what `design-field:check` prints. The configuration check (blocks in the file this install does not have, fields set to a missing block, preset choices no block offers, option pictures missing under the web root) and the [template check](#template-check), one row per finding.
+- **Usage**: the [usage report](#usage-report), run when you ask for it because it reads every entry. One row per block: the options nobody changed from the default, and the ones where every entry picked the same choice. **Count blocks saved in** limits it to the last 12, 6 or 3 months; the table can be searched and sorted. A run over all time also refreshes the **Most used** counts.
+
+![The settings page: the usage report](resources/screenshots/settings-usage.png)
+
 ## Templates
 
 ```twig
@@ -284,7 +295,7 @@ php artisan design-field:usage --months=12   # a yearly review: only blocks save
 
 The counts also order **long dropdowns** (ten choices or more): the three most picked choices for that block type come first, under **Most used** (a block type with no picks for that option yet uses the counts across the site). The counts come from a queue job and are kept for a day.
 
-Per block, it shows the options editors never changed from the default (drop them from that block, or hardcode them in the template), options where every entry picked the same choice (make it the default), and layouts nobody uses. Blocks with fewer than `--sample` entries (default 5) are marked as hints.
+The settings page shows the same report on its **Usage** tab. Per block, it shows the options editors never changed from the default (drop them from that block, or hardcode them in the template), options where every entry picked the same choice (make it the default), and layouts nobody uses. Blocks with fewer than `--sample` entries (default 5) are marked as hints.
 
 ## Choices per entry
 

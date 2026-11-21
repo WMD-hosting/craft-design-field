@@ -11,6 +11,7 @@ use CraftCms\Cms\Plugin\Plugin as BasePlugin;
 use CraftCms\Cms\Twig\Variables\CraftVariable;
 use CraftCms\Cms\Ui\UiControlTypes;
 use Override;
+use wmd\designfield\http\SettingsScreen;
 use wmd\designfield\console\CheckCommand;
 use wmd\designfield\console\SchemaCommand;
 use wmd\designfield\console\UsageCommand;
@@ -24,9 +25,10 @@ use wmd\designfield\web\controls\Steps;
 
 /**
  * Design Field for Craft 6: the Design field type with its panel and its Variant
- * condition rule, the registry service and `craft.designField`.
+ * condition rule, the registry service, `craft.designField` and the settings page
+ * (http/SettingsScreen).
  *
- * Not ported yet: the plugin settings page and the block preview.
+ * Not ported yet: the block preview.
  *
  * @author WMD
  * @since 1.0.0
@@ -42,6 +44,14 @@ class Plugin extends BasePlugin
      * The config file is read by the Groups service, from the project's own `config/`.
      */
     public bool $config = false;
+
+    /**
+     * The settings page only reads (the configuration check and the usage report), so
+     * it also opens where admin changes are off.
+     */
+    public bool $hasCpSettings = true;
+
+    public bool $hasReadOnlyCpSettings = true;
 
     // Protected Properties
     // =========================================================================
@@ -79,6 +89,18 @@ class Plugin extends BasePlugin
     public function register(): void
     {
         $this->app->singleton(Groups::class);
+    }
+
+    #[Override]
+    public function getSettingsResponse(): mixed
+    {
+        return app(SettingsScreen::class)->response(request());
+    }
+
+    #[Override]
+    public function getReadOnlySettingsResponse(): mixed
+    {
+        return $this->getSettingsResponse();
     }
 
     public function boot(UiControlTypes $controlTypes): void
