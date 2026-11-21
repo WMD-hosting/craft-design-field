@@ -37,6 +37,11 @@ class PresetBlock extends ContentBlock
      */
     private array $presets = [];
 
+    /**
+     * @var ?array{url:string,toggles:array<string,array{0:string,1:string}>} The block's own page for the settings page's preview
+     */
+    private ?array $frame = null;
+
     // Public Methods
     // =========================================================================
 
@@ -57,10 +62,33 @@ class PresetBlock extends ContentBlock
         return $this;
     }
 
+    /**
+     * Shows the block itself next to the options (the settings page's Preview tab):
+     * a frame that loads `$url` again after each change, with `{design}` replaced by
+     * the panel's choices as JSON, option handle => key, the form a Design field stores.
+     *
+     * @param ?string $url Null for the panel alone
+     * @param array<string,array{0:string,1:string}> $toggles The off and on key of each switch: the panel holds a switch as true/false
+     * @return static
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function frame(?string $url, array $toggles = []): static
+    {
+        $this->frame = $url === null ? null : ['url' => $url, 'toggles' => $toggles];
+
+        return $this;
+    }
+
     #[Override]
     public function component(): string
     {
-        return $this->presets === [] ? parent::component() : 'design-field:presets';
+        return match (true) {
+            $this->frame !== null => 'design-field:preview',
+            $this->presets !== [] => 'design-field:presets',
+            default => parent::component(),
+        };
     }
 
     #[Override]
@@ -70,6 +98,11 @@ class PresetBlock extends ContentBlock
 
         if ($this->presets !== []) {
             $props['presets'] = $this->presets;
+        }
+
+        if ($this->frame !== null) {
+            $props['presets'] ??= [];
+            $props['frame'] = $this->frame;
         }
 
         return $props;

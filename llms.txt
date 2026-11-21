@@ -29,6 +29,7 @@ option: key => "classes" | {label, icon (Craft icon name or inline SVG), swatch 
 position: cells `columns` to a row; keys naming a set lay themselves out (top-left..bottom-right nine-point grid, four corners, left/center/right row, top/middle/bottom column)
 slider: Craft range control; the editor posts {"__slider": {handle: place}}, stored as the option key
 profiles.<name>: list of group handles; 'group' => 'key' sets the default; 'group' => [overrides] adjusts a shared group; 'group' => [options|tokens ...] defines a local group
+blockPreviewUrl: '/path?type={type}&design={design}' - a site page that renders one block of entry type {type} with the choices in {design} (JSON, option handle => key; set with block.setFieldValue('design', design) for that render); see examples/block-preview.twig
 groupOverrides.<group>: settings merged into a group everywhere (survives regeneration)
 profileOverrides.<profile>.<group>: settings for one profile only
 profile matching: field setting > "<matrixField>:<type>" > "<type>" > "*" > every group
@@ -40,10 +41,11 @@ php artisan design-field:usage [--types=a,b] [--all] [--min=N] [--sample=N] [--m
 
 ## Settings page (control panel: settings/plugins/design-field, admins only, read only, opens with admin changes off)
 ?tab=configuration (default) - the findings of design-field:check: configuration check and template check
+?tab=preview&block=<profile> - the real Design panel of that block (defaults, presets), nothing saved; unknown or no block shows the one with the most options; with blockPreviewUrl the block itself in a frame beside it (desktop 1280 / tablet 768 / mobile 375), reloaded on each change
 ?tab=usage - nothing is counted until &run=1; &months=12|6|3 limits it to entries saved in that period; one row per block (never changed, always the same choice); a run without months refreshes the "Most used" counts
 
 ## Not in 2.x (1.x only)
-settings page tabs Looks, Preview, Presets and Tidy up; block preview, Make tile pictures, import/adopt/migrate
+settings page tabs Looks, Presets and Tidy up; Make tile pictures, import/adopt/migrate
 
 ## Events
 wmd\designfield\events\DefinePanelGroups (Laravel event; Craft 5: Design::EVENT_DEFINE_PANEL_GROUPS): element, groups (replace a Group, e.g. ->withHidden([keys])), keys (read only), hiddenGroups[] (leave an option out of the panel; value kept)

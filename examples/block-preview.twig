@@ -1,0 +1,54 @@
+{#
+  Design Field: an example page for `blockPreviewUrl`, the block itself next to the Design
+  panel on the plugin's settings page (Preview tab), and the page "Make tile pictures"
+  draws from.
+
+  1. Copy this file to templates/_design-field/block-preview.twig and adjust the two marked
+     lines: the layout it extends and how your site renders one block.
+  2. Add a route in routes/web.php (Craft 6 site routes are Laravel routes):
+
+       use CraftCms\Cms\Route\TemplateRoute;
+       use Illuminate\Http\Request;
+       use Illuminate\Support\Facades\Route;
+
+       Route::middleware(['web', 'craft', 'craft.web'])->get(
+           '_design-field/block',
+           fn (Request $request) => new TemplateRoute('_design-field/block-preview', publicOnly: false)->handle($request),
+       );
+
+  3. In config/craft/design-field.php:
+
+       'blockPreviewUrl' => '/_design-field/block?type={type}&design={design}',
+
+  The settings page passes `type` (the entry type handle) and `design` (the panel's choices as
+  JSON, option handle => key). The page shows the newest live block of that type with those
+  choices, set for this render only: nothing is saved. Control panel users only.
+#}
+{% requirePermission 'accessCp' %}
+
+{# ↓ Your site's layout, ideally one without header and footer, so only the block shows. #}
+{% extends '_layout' %}
+
+{% block content %}
+  {% set type = Request.query('type') %}
+  {% set design = Request.query('design') %}
+  {% set block = type ? craft.entries.type(type).status('live').orderBy('dateUpdated DESC').one() : null %}
+
+  {% if block %}
+    {# The panel's choices, for this render only (setFieldValue changes this request's copy). #}
+    {% if design and block.fieldLayout and block.fieldLayout.getFieldByHandle('design') %}
+      {% do block.setFieldValue('design', design) %}
+    {% endif %}
+
+    {# ↓ How your site renders one block, e.g. an include per block type and layout. #}
+    {% include '_blocks/' ~ block.type.handle with { block: block } only %}
+  {% else %}
+    {#
+      No block of this type on any page yet. Simplest fix: a disabled page (e.g. "Blocks")
+      with one filled-in block of each type. Its blocks are still live, so the preview and
+      Make tile pictures use them, and visitors never see the page. An empty block is no
+      help: with no text or items most layouts draw an empty band.
+    #}
+    <p style="padding: 2rem; font-family: system-ui, sans-serif; color: #6b7280">No {{ type }} on any page yet. Add one with some content, for example to a disabled “Blocks” page, to preview it here.</p>
+  {% endif %}
+{% endblock %}

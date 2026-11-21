@@ -9,10 +9,14 @@ namespace wmd\designfield\http;
 
 use CraftCms\Cms\Cp\Data\NavItem;
 use CraftCms\Cms\Entry\EntryTypes;
+use CraftCms\Cms\Field\Fields;
 use CraftCms\Cms\Http\Responses\CpScreenResponse;
+use CraftCms\Cms\Support\Html;
 use CraftCms\Cms\Support\Url;
+use CraftCms\Cms\Field\FieldContext;
 use CraftCms\Cms\Ui\Contracts\Node;
 use CraftCms\Cms\Ui\Nodes\Callout;
+use CraftCms\Cms\Ui\Nodes\Field as UiField;
 use CraftCms\Cms\Ui\Nodes\Heading;
 use CraftCms\Cms\Ui\Nodes\MarkdownContent;
 use CraftCms\Cms\Ui\Nodes\Table;
@@ -21,16 +25,21 @@ use CraftCms\Cms\Ui\UiContext;
 use DateTimeImmutable;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
+use wmd\designfield\fields\Design;
 use wmd\designfield\helpers\Registry;
 use wmd\designfield\helpers\UsageReport;
+use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
 use wmd\designfield\services\Health;
 use wmd\designfield\services\Usage;
+use wmd\designfield\web\controls\BlockPicker;
+use wmd\designfield\web\controls\PresetBlock;
 
 /**
  * The plugin's settings page (Settings → Plugins → Design Field): the configuration
- * check and the usage report, each on its own tab. It only reads: the config file is
- * the configuration, so there is nothing to save and the page opens with admin changes off.
+ * check, the usage report and the preview of a block's panel, each on its own tab. It
+ * only reads: the config file is the configuration, so there is nothing to save and
+ * the page opens with admin changes off.
  *
  * A tab is a URL (`?tab=`), so only the open one is built: the usage report reads every entry.
  *
@@ -50,7 +59,12 @@ class SettingsScreen
     /**
      * The tabs in nav order: `?tab=` value => label. The first is the default.
      */
-    public const TABS = ['configuration' => 'Configuration', 'usage' => 'Usage'];
+    public const TABS = ['configuration' => 'Configuration', 'preview' => 'Preview', 'usage' => 'Usage'];
+
+    /**
+     * Path of the Preview tab's panel in its Ui.
+     */
+    public const PANEL = 'design';
 
     /**
      * The periods the usage report offers, in months; 0 counts everything.
@@ -67,6 +81,7 @@ class SettingsScreen
         private readonly Health $health,
         private readonly Usage $usage,
         private readonly EntryTypes $entryTypes,
+        private readonly Fields $fields,
     ) {
     }
 
@@ -85,10 +100,22 @@ class SettingsScreen
         $tab = $request->query('tab');
         $tab = is_string($tab) && isset(self::TABS[$tab]) ? $tab : array_key_first(self::TABS);
 
-        $nodes = match ($tab) {
+        $props = ['contentMaxWidth' => false];
+        $context = new UiContext();
+
+        if ($tab === 'preview') {
+            $block = $this->previewBlock($request->query('block'));
+            $ui = $this->previewUi($block, []);
+            // The panel asks for itself again after a pick, as it does in an element's form.
+            $context = new UiContext(refreshable: true);
+            $props['refreshUrl'] = Url::cpUrl('design-field/preview/ui', $block === null ? [] : ['block' => $block]);
+        }
+
+        $ui ??= Ui::make(match ($tab) {
             'usage' => $this->usageNodes($request),
+            'preview' => [Callout::make('preview-error', 'The preview needs a configuration that builds: see the Configuration tab.')->variant('danger')],
             default => $this->configurationNodes(),
-        };
+        });
 
         $subnav = [];
         foreach (self::TABS as $key => $label) {
@@ -100,8 +127,84 @@ class SettingsScreen
             ->addCrumb('Settings', 'settings')
             ->addCrumb('Plugins', 'settings/plugins')
             ->subnav($subnav)
-            // The nodes go out as a list: the Ui page reads `ui.nodes` as a JSON array.
-            ->ui(Ui::make(array_values($nodes)), new UiContext(), ['contentMaxWidth' => false]);
+            ->ui($ui, $context, $props);
+    }
+
+    /**
+     * The Preview tab: the real Design panel of one block with its defaults and presets,
+     * and with `blockPreviewUrl` set the block itself beside it. Nothing is saved: the
+     * tab has no submit.
+     *
+     * @param mixed $block A profile name; anything else shows the block with the most options
+     * @param array<string,mixed> $design The panel's choices as its form holds them; empty for the defaults
+     * @return ?Ui Null when the configuration does not build
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function previewUi(mixed $block, array $design): ?Ui
+    {
+        try {
+            $registry = $this->groups->getRegistry();
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+
+        $block = $this->previewBlock($block);
+
+        if ($block === null) {
+            return Ui::make([Callout::make('preview-none', 'No block has options yet: add `profiles` to `config/craft/design-field.php`.')]);
+        }
+
+        $labels = $this->blockLabels($registry);
+        $field = new Design(['name' => 'Design', 'handle' => self::PANEL, 'profile' => $block]);
+        $value = $design === [] ? $field->normalizeValue([], null) : $field->normalizeValueFromRequest($design, null);
+        $panel = $field->uiControl(new FieldContext(self::PANEL, $value));
+        $frame = $this->frameUrl($block);
+
+        if ($panel instanceof PresetBlock) {
+            $toggles = [];
+            foreach ($value->groups() as $handle => $group) {
+                if ($group->input === Group::INPUT_TOGGLE && count($group->options) === 2) {
+                    $toggles[$handle] = array_map(strval(...), array_keys($group->options));
+                }
+            }
+
+            $panel->frame($frame, $toggles);
+        }
+
+        $keys = [];
+        foreach ($value->groups() as $handle => $group) {
+            $keys[] = [
+                'id' => $handle,
+                'group' => ['html' => Html::encode($group->label) . ' ' . Html::tag('code', Html::encode((string)$handle))],
+                'keys' => ['html' => implode(', ', array_map(
+                    static fn(string $key) => Html::tag('code', Html::encode($key)) . ($key === $group->default ? ' ★' : ''),
+                    array_map('strval', array_keys($group->options)),
+                ))],
+            ];
+        }
+
+        return Ui::make([
+            MarkdownContent::make('preview-intro', 'The real Design panel of one block, with its defaults and presets'
+                . ($frame === null ? '.' : ', next to the block itself, which follows each change.')
+                . ' Try layouts and presets: nothing here is saved.'
+                . ($frame === null ? ' To see the block itself beside the panel, set `blockPreviewUrl` in the config file: `examples/block-preview.twig` in the plugin has the page for it.' : '')),
+            UiField::make('Block')
+                ->control(BlockPicker::make('block')->value($block)->options(array_map(
+                    static fn(string $name) => ['value' => $name, 'label' => $labels[$name], 'url' => self::url('preview', ['block' => $name])],
+                    array_keys($labels),
+                ))),
+            UiField::make('What editors see')->control($panel),
+            Heading::make('preview-keys-heading', 'Group handles and keys of this block')
+                ->description('For writing `presets` in the config file. ★ marks the default.'),
+            Table::make('preview-keys')
+                ->columns([
+                    ['key' => 'group', 'label' => 'Group', 'width' => '1fr'],
+                    ['key' => 'keys', 'label' => 'Keys', 'wrap' => true, 'width' => '3fr'],
+                ])
+                ->rows($keys),
+        ]);
     }
 
     /**
@@ -121,6 +224,79 @@ class SettingsScreen
 
     // Private Methods
     // =========================================================================
+
+    /**
+     * The block the Preview tab shows: the one asked for, or the one with the most options.
+     *
+     * @param mixed $requested
+     * @return ?string Null when no block has options, or the configuration does not build
+     */
+    private function previewBlock(mixed $requested): ?string
+    {
+        try {
+            $registry = $this->groups->getRegistry();
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+
+        if (is_string($requested) && isset($registry->profiles[$requested])) {
+            return $requested;
+        }
+
+        // `*` names no one block, so it has no block to show beside the panel: a named one first.
+        $busiest = null;
+        foreach ($registry->profiles as $name => $groups) {
+            if ((string)$name !== Registry::FALLBACK_PROFILE && ($busiest === null || count($groups) > count($registry->profiles[$busiest]))) {
+                $busiest = (string)$name;
+            }
+        }
+
+        return $busiest ?? (isset($registry->profiles[Registry::FALLBACK_PROFILE]) ? Registry::FALLBACK_PROFILE : null);
+    }
+
+    /**
+     * Every profile with the name of its block, by name: `blockTeam` is "Team",
+     * `pageBuilder:blockTeam` is "Team (in Page builder)", `*` is every other block.
+     *
+     * @param Registry $registry
+     * @return array<string,string> Profile name => label
+     */
+    private function blockLabels(Registry $registry): array
+    {
+        $labels = [];
+
+        foreach ($registry->profileNames() as $name) {
+            [$owner, $type] = str_contains($name, ':') ? explode(':', $name, 2) : [null, $name];
+            $label = $name === Registry::FALLBACK_PROFILE
+                ? 'Every other block (*)'
+                : ($this->entryTypes->getEntryTypeByHandle($type)?->name ?? $type);
+
+            $labels[$name] = $owner === null ? $label : sprintf('%s (in %s)', $label, $this->fields->getFieldByHandle($owner)?->name ?? $owner);
+        }
+
+        uasort($labels, strnatcasecmp(...));
+
+        return $labels;
+    }
+
+    /**
+     * Where the block itself renders (`blockPreviewUrl`), with its type filled in and
+     * `{design}` left for the page script.
+     *
+     * @param string $block A profile name
+     * @return ?string Null when the config has no `blockPreviewUrl`, or the profile names no one block type
+     */
+    private function frameUrl(string $block): ?string
+    {
+        $url = trim((string)$this->groups->config()['blockPreviewUrl']);
+        $type = str_contains($block, ':') ? substr($block, strpos($block, ':') + 1) : $block;
+
+        if ($url === '' || $block === Registry::FALLBACK_PROFILE) {
+            return null;
+        }
+
+        return str_replace('{type}', rawurlencode($type), $url);
+    }
 
     /**
      * What `design-field:check` prints: the configuration against this install, and
