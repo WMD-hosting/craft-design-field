@@ -1,6 +1,6 @@
 # Release Notes for Design Field
 
-## Unreleased
+## 2.0.0-beta.2 - 2026-11-21
 
 ### Added
 - The starter stylesheet is back: `{% do craft.designField.starterCss() %}` in the site layout adds it to the page's head, once.
