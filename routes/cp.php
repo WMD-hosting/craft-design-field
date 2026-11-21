@@ -18,9 +18,11 @@ Route::middleware(RequireAdmin::class)->prefix('design-field')->group(function()
     // The pictures are site files that belong in the repository, so admin changes must be allowed.
     Route::post('tiles/save', [PreviewController::class, 'saveTile'])->middleware(RequireAdminChanges::class);
 
-    // The Looks and Presets tabs save to config/craft/design-field.settings.json
+    // The Looks and Presets tabs, and the looks of one block on the Preview tab, save to
+    // config/craft/design-field.settings.json
     Route::middleware(RequireAdminChanges::class)->prefix('settings')->group(function(): void {
         Route::post('looks', [SettingsController::class, 'looks']);
+        Route::post('block-looks', [SettingsController::class, 'blockLooks']);
         Route::post('presets', [SettingsController::class, 'presets']);
     });
 });

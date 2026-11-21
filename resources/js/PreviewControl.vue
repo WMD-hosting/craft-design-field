@@ -48,7 +48,9 @@ const src = ref('');
 const scale = computed(() => (available.value > 0 ? Math.min(1, available.value / size.value.width) : 1));
 // The panel holds a switch as true/false; the block's page takes option keys, as stored.
 const choices = computed(() => {
-    const keys = {...(props.value ?? {})};
+    // Keys that start with an underscore are the settings page's own (the looks of this
+    // block), not choices: the block's page does not get them, nor load again for them.
+    const keys = Object.fromEntries(Object.entries(props.value ?? {}).filter(([handle]) => !handle.startsWith('_')));
 
     for (const [handle, [off, on]] of Object.entries(frame.value?.toggles ?? {})) {
         if (handle in keys && (typeof keys[handle] === 'boolean' || keys[handle] === '')) {

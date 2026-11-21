@@ -48,7 +48,9 @@ class PreviewController
 
     /**
      * The Preview tab's Ui built again for the choices the panel holds, the way an
-     * element's form refreshes it: options that wait for another one (`showIf`) follow.
+     * element's form refreshes it: options that wait for another one (`showIf`) follow,
+     * and the panel is built with the looks picked for this block ("Customize this
+     * block"), saved or not. Nothing is saved here.
      *
      * The Ui page posts the values of the scope that changed: the panel's own map
      * (`scope` is its path), or every value of the tab (`scope` is empty). The block is

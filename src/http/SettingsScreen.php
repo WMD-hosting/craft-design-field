@@ -21,6 +21,7 @@ use CraftCms\Cms\Ui\Controls\Table as ControlTable;
 use CraftCms\Cms\Ui\Enums\ControlMode;
 use CraftCms\Cms\Ui\Nodes\Callout;
 use CraftCms\Cms\Ui\Nodes\Field as UiField;
+use CraftCms\Cms\Ui\Nodes\Group as GroupNode;
 use CraftCms\Cms\Ui\Nodes\Heading;
 use CraftCms\Cms\Ui\Nodes\MarkdownContent;
 use CraftCms\Cms\Ui\Nodes\Table;
@@ -78,6 +79,13 @@ class SettingsScreen
     public const PANEL = 'design';
 
     /**
+     * Key of the panel's values that holds the looks of this block only ("Customize this
+     * block"): option handle => a StyleChoices value, '' for the look it has on every block.
+     * Inside the panel's own values, so each refresh of the panel carries the unsaved ones.
+     */
+    public const LOOKS = '_looks';
+
+    /**
      * The periods the usage report offers, in months; 0 counts everything.
      */
     public const PERIODS = [0 => 'All time', 12 => 'Last 12 months', 6 => 'Last 6 months', 3 => 'Last 3 months'];
@@ -122,6 +130,11 @@ class SettingsScreen
             // The panel asks for itself again after a pick, as it does in an element's form.
             $context = new UiContext(refreshable: true);
             $props['refreshUrl'] = Url::cpUrl('design-field/preview/ui', $block === null ? [] : ['block' => $block]);
+
+            // What Save saves is the looks of this block only: a site file, so where admin changes are allowed.
+            if ($ui !== null && $block !== null && $this->generalConfig->allowAdminChanges) {
+                $props['submit'] = ['method' => 'post', 'url' => Url::cpUrl('design-field/settings/block-looks', ['block' => $block])];
+            }
         }
 
         // Looks and Presets are the two tabs that save, to the settings file beside the config
@@ -163,11 +176,11 @@ class SettingsScreen
 
     /**
      * The Preview tab: the real Design panel of one block with its defaults and presets,
-     * and with `blockPreviewUrl` set the block itself beside it. Nothing is saved: the
-     * tab has no submit.
+     * and with `blockPreviewUrl` set the block itself beside it. The panel ends with the
+     * looks of this block only ("Customize this block"), which is all the tab's Save saves.
      *
      * @param mixed $block A profile name; anything else shows the block with the most options
-     * @param array<string,mixed> $design The panel's choices as its form holds them; empty for the defaults
+     * @param array<string,mixed> $design The panel's values as its form holds them: the choices, and under LOOKS the looks picked for this block, saved or not; empty for the defaults and the saved looks
      * @return ?Ui Null when the configuration does not build
      *
      * @author WMD
@@ -188,10 +201,34 @@ class SettingsScreen
         }
 
         $labels = $this->blockLabels($registry);
-        $field = new Design(['name' => 'Design', 'handle' => self::PANEL, 'profile' => $block]);
-        $value = $design === [] ? $field->normalizeValue([], null) : $field->normalizeValueFromRequest($design, null);
-        $panel = $field->uiControl(new FieldContext(self::PANEL, $value));
         $frame = $this->frameUrl($block);
+        $looks = $this->blockLooks($registry, $block);
+        $picked = is_array($design[self::LOOKS] ?? null) ? $design[self::LOOKS] : null;
+        unset($design[self::LOOKS]);
+
+        // The panel as the field builds it, which reads the request's registry.
+        $build = function() use ($block, $design): array {
+            $field = new Design(['name' => 'Design', 'handle' => self::PANEL, 'profile' => $block]);
+            $value = $design === [] ? $field->normalizeValue([], null) : $field->normalizeValueFromRequest($design, null);
+
+            return [$value, $field->uiControl(new FieldContext(self::PANEL, $value))];
+        };
+
+        // With looks picked for this block the panel is built with them, saved or not.
+        if ($picked !== null) {
+            foreach ($looks as $handle => $look) {
+                $value = $picked[$handle] ?? '';
+                $looks[$handle]['value'] = is_string($value) && in_array($value, $look['values'], true) ? $value : '';
+            }
+
+            try {
+                [$value, $panel] = $this->groups->withInputs($this->inputsWithBlockLooks($block, array_filter(array_column($looks, 'value', 'handle'), 'strlen')), $build);
+            } catch (InvalidArgumentException) {
+                return null;
+            }
+        } else {
+            [$value, $panel] = $build();
+        }
 
         if ($panel instanceof PresetBlock) {
             $toggles = [];
@@ -202,6 +239,10 @@ class SettingsScreen
             }
 
             $panel->frame($frame, $toggles)->tiles($frame === null ? null : $this->tiles($registry, $block));
+
+            if ($looks !== []) {
+                $panel->append($this->blockLooksGroup($looks, $labels[$block]));
+            }
         }
 
         $keys = [];
@@ -219,7 +260,8 @@ class SettingsScreen
         return Ui::make([
             MarkdownContent::make('preview-intro', 'The real Design panel of one block, with its defaults and presets'
                 . ($frame === null ? '.' : ', next to the block itself, which follows each change.')
-                . ' Try layouts and presets: nothing here is saved.'
+                . ' Try layouts and presets: the choices you make here are not saved. **Customize this block**, at the end of the panel, sets how an option looks on this block only'
+                . ($this->generalConfig->allowAdminChanges ? ': it shows at once, and Save keeps it.' : '.')
                 . ($frame === null ? ' To see the block itself beside the panel, set `blockPreviewUrl` in the config file: `examples/block-preview.twig` in the plugin has the page for it.' : '')),
             UiField::make('Block')
                 ->control(BlockPicker::make('block')->value($block)->options(array_map(
@@ -236,6 +278,70 @@ class SettingsScreen
                 ])
                 ->rows($keys),
         ]);
+    }
+
+    /**
+     * The looks each option of a block can take there, the one saved for this block only
+     * and the one it has without it: what "Customize this block" offers.
+     *
+     * @param Registry $registry The request's own, with the saved looks
+     * @param string $block A profile name
+     * @return array<string,array{handle:string,label:string,value:string,every:string,values:list<string>}> By option handle; `value` is '' without a look of its own, `every` the look it then has
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function blockLooks(Registry $registry, string $block): array
+    {
+        $inputs = InputOverrides::clean($this->groups->config()['inputs']);
+        $saved = InputOverrides::clean($this->settingsFile->read()['inputs'])['profiles'][$block] ?? [];
+        $looks = [];
+
+        foreach ($registry->profiles[$block] ?? [] as $handle => $group) {
+            $values = StyleChoices::values($group);
+
+            // A list with one look to take has nothing to pick.
+            if (count($values) < 2) {
+                continue;
+            }
+
+            // Without a look of its own: the option table's look where the option can take it, or the config file's.
+            $everywhere = $inputs['groups'][$handle] ?? null;
+            $every = $everywhere !== null && in_array($everywhere['input'], $group->supportedInputs(), true)
+                ? $everywhere
+                : ($registry->configInputs[$block][$handle] ?? ['input' => $group->input, 'iconsOnly' => $group->iconsOnly]);
+            $value = isset($saved[$handle]) ? StyleChoices::value($saved[$handle]) : '';
+
+            $looks[(string)$handle] = [
+                'handle' => (string)$handle,
+                'label' => $group->label,
+                'value' => in_array($value, $values, true) ? $value : '',
+                'every' => StyleChoices::value($every),
+                'values' => $values,
+            ];
+        }
+
+        return $looks;
+    }
+
+    /**
+     * The configuration's `inputs` with the looks of one block replaced: what the site
+     * would read after a save of them. Looks the config file itself names for the block stay under them.
+     *
+     * @param string $block A profile name
+     * @param array<string,string> $looks Option handle => a StyleChoices value
+     * @return array<string,mixed>
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function inputsWithBlockLooks(string $block, array $looks): array
+    {
+        $inputs = InputOverrides::clean($this->groups->config()['inputs']);
+        $inFile = InputOverrides::clean($this->groups->fileConfig()['inputs'] ?? [])['profiles'][$block] ?? [];
+        $inputs['profiles'][$block] = array_replace($inFile, array_map(StyleChoices::style(...), $looks));
+
+        return $inputs;
     }
 
     /**
@@ -419,6 +525,40 @@ class SettingsScreen
 
     // Private Methods
     // =========================================================================
+
+    /**
+     * "Customize this block": one dropdown per option, inside the panel.
+     *
+     * @param array<string,array{handle:string,label:string,value:string,every:string,values:list<string>}> $looks From blockLooks()
+     * @param string $name The block's name
+     * @return GroupNode
+     */
+    private function blockLooksGroup(array $looks, string $name): GroupNode
+    {
+        $editable = $this->generalConfig->allowAdminChanges;
+        $nodes = [
+            MarkdownContent::make('design-looks-intro', sprintf('How an option looks on **%s** only. It wins over the Looks tab, and the panel above shows it at once.', $name)
+                . ($editable ? ' Save writes it to `config/craft/design-field.settings.json`.' : ' Changing it needs admin changes to be allowed.'))->displayInPane(false),
+        ];
+
+        foreach ($looks as $handle => $look) {
+            $nodes[] = UiField::make($look['label'])
+                ->width(50)
+                ->control(Choice::make([self::LOOKS, $handle])
+                    ->withoutPlaceholder()
+                    ->value($look['value'])
+                    ->options([
+                        ['label' => sprintf('As on every block (%s)', StyleChoices::LABELS[$look['every']] ?? $look['every']), 'value' => ''],
+                        ...array_map(static fn(string $value) => ['label' => StyleChoices::LABELS[$value], 'value' => $value], $look['values']),
+                    ])
+                    ->reactive($editable)
+                    ->mode($editable ? ControlMode::Editable : ControlMode::ReadOnly));
+        }
+
+        $set = array_filter(array_column($looks, 'value'), 'strlen') !== [];
+
+        return GroupNode::make('design-looks', $nodes)->label('Customize this block')->collapsible()->expanded($set);
+    }
 
     /**
      * The block the Preview tab shows: the one asked for, or the one with the most options.

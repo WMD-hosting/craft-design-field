@@ -19,8 +19,9 @@ use wmd\designfield\services\Groups;
 use wmd\designfield\services\SettingsFile;
 
 /**
- * Saves what the settings page's Looks and Presets tabs edit to the settings file
- * beside the config file (services/SettingsFile). Each tab keeps what the other saved.
+ * Saves what the settings page edits to the settings file beside the config file
+ * (services/SettingsFile): the Looks and Presets tabs, and the looks of one block on the
+ * Preview tab. Each save keeps the parts of the file it does not edit.
  * The routes are for admins where admin changes are allowed.
  *
  * @author WMD
@@ -33,6 +34,7 @@ class SettingsController
     public function __construct(
         private readonly Groups $groups,
         private readonly SettingsFile $file,
+        private readonly SettingsScreen $screen,
     ) {
     }
 
@@ -143,5 +145,71 @@ class SettingsController
         $this->file->write(InputOverrides::prune($inputs, $registry), $saved['presets']);
 
         return $this->asSuccess('Looks saved.', redirect: SettingsScreen::url('looks'));
+    }
+
+    /**
+     * The Preview tab's "Customize this block": the looks picked there replace the saved
+     * looks of that block only (`inputs.profiles[<block>]`). An option left "As on every
+     * block" has none. Everything else in the file is kept.
+     *
+     * The tab posts its whole form; only the looks are read, the panel's choices are not saved.
+     *
+     * @param Request $request `block` in the URL (a profile name); `design._looks`: option handle => look
+     * @return Response
+     * @throws ValidationException
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function blockLooks(Request $request): Response
+    {
+        $block = $request->query('block');
+        $path = SettingsScreen::PANEL . '.' . SettingsScreen::LOOKS;
+        $data = $request->validate([$path => ['nullable', 'array'], "$path.*" => ['nullable', 'string']]);
+        $picked = $data[SettingsScreen::PANEL][SettingsScreen::LOOKS] ?? [];
+
+        try {
+            $offered = is_string($block) ? $this->screen->blockLooks($this->groups->getRegistry(), $block) : [];
+        } catch (InvalidArgumentException $e) {
+            abort(422, $e->getMessage());
+        }
+
+        abort_if(!is_string($block) || !isset($this->groups->getRegistry()->profiles[$block]), 404, 'Unknown block.');
+
+        // Only a look the option can take on this block: any other would be dropped when
+        // the file is read, after a save that said it worked.
+        $looks = [];
+        $problems = [];
+        foreach ($picked as $handle => $look) {
+            if ($look === null || $look === '') {
+                continue;
+            }
+
+            if (!in_array($look, $offered[$handle]['values'] ?? [], true)) {
+                $problems["$path.$handle"] = [sprintf('%s cannot look like that on this block.', $offered[$handle]['label'] ?? $handle)];
+                continue;
+            }
+
+            $looks[(string)$handle] = StyleChoices::style($look);
+        }
+
+        if ($problems !== []) {
+            throw ValidationException::withMessages($problems);
+        }
+
+        $saved = $this->file->read();
+        $inputs = $saved['inputs'];
+        $inputs['profiles'][$block] = $looks;
+
+        try {
+            $inputs = InputOverrides::clean($inputs);
+            $registry = $this->groups->registryWith(['inputs' => InputOverrides::merge($this->groups->fileConfig()['inputs'] ?? [], $inputs)]);
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages([$path => [$e->getMessage()]]);
+        }
+
+        $this->file->write(InputOverrides::prune($inputs, $registry), $saved['presets']);
+
+        return $this->asSuccess('Looks of this block saved.', redirect: SettingsScreen::url('preview', ['block' => $block]));
     }
 }
