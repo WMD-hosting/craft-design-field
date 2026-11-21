@@ -163,6 +163,7 @@ class Groups
             'sections' => [],
             'tileImages' => '/design-field/{type}/{key}.jpg',
             'previewStylesheet' => '',
+            'blockPreviewUrl' => '',
             'previewAttributes' => [],
         ];
     }

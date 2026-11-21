@@ -3,6 +3,15 @@
     "file": "assets/_plugin-vue_export-helper-BDNMzG2s.js",
     "name": "_plugin-vue_export-helper"
   },
+  "resources/js/BlockPickerControl.vue": {
+    "file": "assets/BlockPickerControl-C_B184km.js",
+    "name": "BlockPickerControl",
+    "src": "resources/js/BlockPickerControl.vue",
+    "isDynamicEntry": true,
+    "css": [
+      "assets/BlockPickerControl-CqppyVEs.css"
+    ]
+  },
   "resources/js/GridControl.vue": {
     "file": "assets/GridControl-B_BYNV_D.js",
     "name": "GridControl",
@@ -16,12 +25,24 @@
     ]
   },
   "resources/js/PresetsControl.vue": {
-    "file": "assets/PresetsControl-COb3NdLc.js",
+    "file": "assets/PresetsControl-DYjnGSaf.js",
     "name": "PresetsControl",
     "src": "resources/js/PresetsControl.vue",
     "isDynamicEntry": true,
     "css": [
       "assets/PresetsControl-C3dcMT9C.css"
+    ]
+  },
+  "resources/js/PreviewControl.vue": {
+    "file": "assets/PreviewControl-DoEhKmOE.js",
+    "name": "PreviewControl",
+    "src": "resources/js/PreviewControl.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/PresetsControl.vue"
+    ],
+    "css": [
+      "assets/PreviewControl-GAKUcYmF.css"
     ]
   },
   "resources/js/RenderedControl.vue": {
@@ -49,7 +70,7 @@
     ]
   },
   "resources/js/cp.ts": {
-    "file": "assets/cp-ntejxdLY.js",
+    "file": "assets/cp-DdT0LhFh.js",
     "name": "cp",
     "src": "resources/js/cp.ts",
     "isEntry": true,
@@ -57,7 +78,9 @@
       "resources/js/StepsControl.vue",
       "resources/js/GridControl.vue",
       "resources/js/RenderedControl.vue",
-      "resources/js/PresetsControl.vue"
+      "resources/js/PresetsControl.vue",
+      "resources/js/PreviewControl.vue",
+      "resources/js/BlockPickerControl.vue"
     ]
   }
 }

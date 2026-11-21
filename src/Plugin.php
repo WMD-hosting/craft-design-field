@@ -18,6 +18,7 @@ use wmd\designfield\console\UsageCommand;
 use wmd\designfield\fields\Design;
 use wmd\designfield\services\Groups;
 use wmd\designfield\variables\DesignFieldVariable;
+use wmd\designfield\web\controls\BlockPicker;
 use wmd\designfield\web\controls\Grid;
 use wmd\designfield\web\controls\PresetBlock;
 use wmd\designfield\web\controls\Rendered;
@@ -28,7 +29,7 @@ use wmd\designfield\web\controls\Steps;
  * condition rule, the registry service, `craft.designField` and the settings page
  * (http/SettingsScreen).
  *
- * Not ported yet: the block preview.
+ * Not ported yet: Make tile pictures.
  *
  * @author WMD
  * @since 1.0.0
@@ -76,7 +77,8 @@ class Plugin extends BasePlugin
     /**
      * Loaded on control-panel pages before the panel boots: the Vue controls the panel's
      * own Controls name (`design-field:steps`, `design-field:grid`, `design-field:rendered`,
-     * `design-field:presets`), built by `npm run build` into `public/build`.
+     * `design-field:presets`, and the settings page's `design-field:preview` and
+     * `design-field:block-picker`), built by `npm run build` into `public/build`.
      */
     protected array $vite = ['resources/js/cp.ts'];
 
@@ -106,6 +108,6 @@ class Plugin extends BasePlugin
     public function boot(UiControlTypes $controlTypes): void
     {
         CraftVariable::macro('designField', fn() => app(DesignFieldVariable::class));
-        $controlTypes->register(Steps::class, Grid::class, Rendered::class, PresetBlock::class);
+        $controlTypes->register(Steps::class, Grid::class, Rendered::class, PresetBlock::class, BlockPicker::class);
     }
 }

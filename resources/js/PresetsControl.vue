@@ -58,7 +58,7 @@ function apply(preset) {
   <!-- The root's class stays static: the field adds its own (form-control) after mount,
        and a class binding here would drop it on the next redraw. -->
   <div class="df-presets-block">
-    <div class="df-presets" role="group" :aria-label="t('Presets')">
+    <div v-if="presets.length" class="df-presets" role="group" :aria-label="t('Presets')">
       <span class="df-presets__label" aria-hidden="true">{{ t('Presets') }}</span>
       <button
         v-for="(preset, index) in presets"
