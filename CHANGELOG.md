@@ -21,6 +21,7 @@
 - "Aa" samples (`sample`) show at their font size in the button again, and count as narrow buttons when the field picks buttons or a dropdown.
 
 ### Fixed
+- Layout pictures in a narrow column (sections side by side on a laptop screen) showed one stretched picture per row, which made a block with ten layouts about 2,500px tall. Two fit in a row now.
 - The config file is read once per request. Building the options read it again for every layout picture it looked up (about 65 times on a site with many blocks), which cost about 125 ms on each request that shows a Design value, and memory that a long-running process such as a test suite never got back.
 - A section whose options all wait for another choice (Colour & style and Spacing on an image block with the caption layout) no longer shows its heading over an empty area; it comes back with its options when the layout changes.
 
