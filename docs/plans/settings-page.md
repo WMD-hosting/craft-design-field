@@ -97,8 +97,36 @@ the whole configuration: nothing on the page saves a setting until stage 4 is de
 
 ## Stage 4: Looks and Presets (not started: needs a decision)
 
-On 1.x the Looks and Presets tabs saved to project config. On 2.x the config file is the whole
-configuration, so where such edits would be stored has to be decided before anything is built.
+On 1.x the **Looks** tab (a quick switch of one input style for another, one row per option with its
+look, labels, icons and section) and the **Presets** tab (one row per preset) saved to project config as
+`inputs` and `presetRows`. On 2.x the config file is the whole configuration, so where such edits would
+be stored has to be decided before anything is built.
+
+What is already there for it, whatever the storage: `helpers\Registry` reads `inputs` and `presets`
+from the configuration array and applies them (`inputs` last, so they win over `groupOverrides` and
+`profileOverrides`); `helpers\InputOverrides` cleans a posted `inputs` array and prunes what no
+longer matches an option; `helpers\StyleChoices` lists the looks an option can take and the rows of
+the Looks table; `helpers\SettingsRows::presets()` / `presetRows()` turn preset table rows into the
+`presets` array and back, and `Registry::invalidPresetChoices()` names choices no block has. The
+Preview tab of stage 2 would show a pending look before it is saved, as on 1.x.
+
+Where the edits could live:
+
+1. **A second file the page writes, next to the config file** (recommended):
+   `config/craft/design-field.settings.json`, holding only `inputs` and `presets`. `Groups::config()`
+   lays it over `design-field.php`. It is a site file like the tile pictures: written only where admin
+   changes are allowed, committed with the site, deployed with the code, read-only on production. The
+   hand-written file stays the place for groups, options and profiles; the page never rewrites PHP.
+   As on 1.x, a `presets` key in `design-field.php` makes the Presets tab read-only.
+2. **No storage: the tabs write the config for you.** Looks and Presets are worked out on the page
+   with the live preview, and the page shows the `inputs` / `presets` array to paste into
+   `design-field.php`. The config file stays the only source; the cost is a copy and paste per change.
+   The cheapest to build, and the fallback if a written file is not wanted.
+3. **Project config, as on 1.x** (`plugins.design-field.settings`). It syncs between environments by
+   itself, but it is a second source of configuration beside the file, which the decision of
+   10.11.2026 ruled out.
+
+A database table is not an option: the looks would not deploy with the site.
 
 ## Not ported
 
