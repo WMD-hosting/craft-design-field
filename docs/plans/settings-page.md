@@ -122,12 +122,48 @@ Decided by wmd on 21.11.2026: the page writes a file beside the config file.
 - **Not in this stage** (1.x had them on the Looks tab): a look for one block only ("Customize this
   block"), other labels and icons for an option's choices, and the live preview of a look before it is
   saved. The file format already carries the first two (`inputs.profiles`, `inputs.meta`), so a later
-  stage can add the screens without a migration.
+  stage can add the screens without a migration: stage 5.
 - **Tests:** `LooksPresetsTest`: the configuration without, with and with a broken settings file, and
   with `presets` in the config file; the Presets tab saves rows, shows them and the panel gets the
   preset; invalid choices are refused; presets in the config file show read only; the Looks tab lists
   every option; a look, a swap and a section are saved, the registry reads them and the other parts of
   the file are kept; read only and refused with admin changes off; the routes carry both middlewares.
+
+## Stage 5: The rest of the Looks tab
+
+The three parts stage 4 left out, in one pull request.
+
+| | |
+|---|---|
+| Screen | `?tab=preview&block=<profile>` ("Customize this block" in the panel), `?tab=looks&option=<group>` (labels and icons of one option), `?tab=looks` ("Try these looks") |
+| Routes | `routes/cp.php`: `POST design-field/settings/block-looks?block=<profile>`, `POST design-field/settings/labels?option=<group>`, `POST design-field/looks/ui` (the Looks tab's Ui built again); `POST design-field/preview/ui` now builds the panel with the looks it is sent |
+| Permissions | the saves: admin and `RequireAdminChanges`; the two refresh routes read only, admin |
+| Reused | `helpers\InputOverrides` (`clean()`, `merge()`, `prune()`), `helpers\StyleChoices` (`values()`, `value()`, `style()`), `helpers\Registry` (it already applies `inputs.profiles` and `inputs.meta`, and keeps `baseOptions`), `services\SettingsFile`, Craft's icon picker as a table column |
+
+- **A look for one block only:** the Preview tab's panel ends with a group "Customize this block": one
+  dropdown per option of the block, "As on every block" or a look the option can take there
+  (`StyleChoices::values()`). The dropdowns are part of the panel's own values (`design._looks`), so
+  every refresh of the panel carries them and the panel is built with them: the look shows before it is
+  saved. The tab gets a Save where admin changes are allowed; it replaces `inputs.profiles[<block>]`
+  in the settings file and keeps everything else. With admin changes off the dropdowns are read only.
+  Order, last wins, as on 1.x: config file, quick switch, option table, this block.
+- **Labels and icons:** the Looks tab gets an option picker; `?tab=looks&option=<group>` shows that
+  option's choices as an editable table (key, label, icon from Craft's icon picker). An empty cell keeps
+  what the config file says. A save replaces `inputs.meta[<group>]` and keeps everything else.
+- **Try these looks:** the Looks tab, and an option's labels and icons, can show one block's panel
+  built with the looks as they stand in the form, not as saved (`POST design-field/looks/ui`). An
+  editable table's cells cannot ask for a refresh (Craft nests its rows as not refreshable), so the
+  panel follows the quick switch and the block picked for it, and is asked for again by picking the
+  block. That panel never asks for itself again (`PresetBlock::still()`): a refresh of the panel
+  alone would not carry the form's looks.
+- Each save keeps the parts of the settings file it does not edit; the Looks tab's own save keeps
+  `profiles` and `meta`.
+- **Tests:** `BlockLooksTest` and `LabelsIconsTest` beside `LooksPresetsTest`: the Preview tab offers
+  the looks an option can take on that block; the refresh builds the panel with a pending look and saves
+  nothing; a save writes `inputs.profiles` for that block only and keeps the rest; "As on every block"
+  removes it; read only and refused with admin changes off; labels and icons are saved, shown and
+  read by the panel, an emptied row goes, numeric keys keep their rows; the routes carry both
+  middlewares.
 
 ## Not ported
 

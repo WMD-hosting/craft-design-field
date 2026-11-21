@@ -7,7 +7,9 @@
 
 namespace wmd\designfield\web\controls;
 
+use CraftCms\Cms\Ui\Contracts\Node;
 use CraftCms\Cms\Ui\Controls\ContentBlock;
+use CraftCms\Cms\Ui\Ui;
 use Override;
 
 /**
@@ -46,6 +48,13 @@ class PresetBlock extends ContentBlock
      * @var ?array{saveUrl:string,block:string,skip:string,layouts:list<array{key:string,label:string,picture:?string}>}
      */
     private ?array $tiles = null;
+
+    /**
+     * @var ?Ui The options, kept to add to: core's Content Block does not hand its Ui back
+     */
+    private ?Ui $options = null;
+
+    private bool $still = false;
 
     // Public Methods
     // =========================================================================
@@ -101,6 +110,55 @@ class PresetBlock extends ContentBlock
         $this->tiles = $tiles;
 
         return $this;
+    }
+
+    #[Override]
+    public function ui(Ui $ui): static
+    {
+        $this->options = $ui;
+
+        return parent::ui($ui);
+    }
+
+    /**
+     * Adds nodes under the options, inside the panel: their controls are part of the
+     * panel's own values, so each refresh of the panel carries them (the settings page's
+     * "Customize this block").
+     *
+     * @param Node ...$nodes
+     * @return static
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function append(Node ...$nodes): static
+    {
+        return parent::ui(Ui::make([...($this->options?->nodes() ?? []), ...$nodes]));
+    }
+
+    /**
+     * A panel that never asks for itself again: for a preview built from values the
+     * panel does not hold (the Looks tab's "Try these looks"), where a refresh of the
+     * panel alone would lose them. Options that wait for another one do not follow.
+     *
+     * @return static
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function still(): static
+    {
+        $this->still = true;
+
+        return $this->reactive(false);
+    }
+
+    #[Override]
+    public function nestedUis(mixed $value = null): array
+    {
+        $uis = parent::nestedUis($value);
+
+        return $this->still ? array_map(static fn(array $ui): array => ['refreshable' => false] + $ui, $uis) : $uis;
     }
 
     #[Override]

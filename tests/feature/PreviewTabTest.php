@@ -17,7 +17,7 @@ use wmd\designfield\services\Groups;
 
 /**
  * The settings page's Preview tab: the real Design panel of any block, and with
- * `blockPreviewUrl` the block itself beside it. Nothing on it saves.
+ * `blockPreviewUrl` the block itself beside it. The choices made in the panel are never saved.
  */
 final class PreviewTabTest extends PluginTestCase
 {
@@ -71,9 +71,10 @@ final class PreviewTabTest extends PluginTestCase
         self::assertSame('pageBuilder:blockTeam', $picker->props->options[2]->value);
         self::assertStringContainsString('block=' . rawurlencode('pageBuilder:blockTeam'), $picker->props->options[2]->url);
 
-        // The panel refreshes itself for the block in the page's address, and nothing is submitted.
+        // The panel refreshes itself for the block in the page's address. What Save saves is
+        // the looks of this block only (BlockLooksTest).
         self::assertStringEndsWith('/design-field/preview/ui?block=blockCta', $props->refreshUrl);
-        self::assertObjectNotHasProperty('submit', $props);
+        self::assertStringEndsWith('/design-field/settings/block-looks?block=blockCta', $props->submit->url);
 
         // The panel is the field's own, presets included; without `blockPreviewUrl` no frame.
         $panel = $nodes['design']->control;
@@ -131,8 +132,8 @@ final class PreviewTabTest extends PluginTestCase
 
         $ui = $response->json('ui');
         self::assertSame(['design'], $ui['scope']);
-        self::assertSame(['tone' => 'dark', 'border' => true, 'shade' => 'full'], $ui['values']['design'], 'the choices posted come back');
-        self::assertSame(['tone' => false, 'border' => false, 'shade' => false], self::hidden($ui['nodes']));
+        self::assertSame(['tone' => 'dark', 'border' => true, 'shade' => 'full'], array_diff_key($ui['values']['design'], ['_looks' => true]), 'the choices posted come back');
+        self::assertSame(['tone' => false, 'border' => false, 'shade' => false], array_intersect_key(self::hidden($ui['nodes']), ['tone' => true, 'border' => true, 'shade' => true]));
         self::assertSame($elements, DB::table('elements')->count(), 'nothing was saved');
 
         // An option that waits for another one follows it: Shade shows for a dark tone only.

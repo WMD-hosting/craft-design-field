@@ -211,6 +211,32 @@ class Groups
     }
 
     /**
+     * Runs `$build` with the registry built from other looks than the saved ones, for the
+     * settings page's preview of a look before it is saved. The request's own registry is
+     * back when it returns: nothing else reads the unsaved looks.
+     *
+     * @template T
+     * @param array<string,mixed> $inputs The `inputs` to build with, whole
+     * @param callable():T $build
+     * @return T
+     * @throws InvalidArgumentException if the configuration does not build with them
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function withInputs(array $inputs, callable $build): mixed
+    {
+        $own = $this->registry;
+        $this->registry = $this->registryWith(['inputs' => $inputs]);
+
+        try {
+            return $build();
+        } finally {
+            $this->registry = $own;
+        }
+    }
+
+    /**
      * Reads `config/designtokens/{name}.json`.
      *
      * @param string $name File name without `.json`
