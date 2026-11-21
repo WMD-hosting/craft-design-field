@@ -23,9 +23,6 @@ Design Field 2 is a beta, as Craft 6 is. The field, its panel, the templates API
 
 - the plugin settings page (Looks, Preview, Presets, Tidy up and Configuration tabs), so the configuration is the config file only;
 - the live block preview and **Make tile pictures**;
-- the starter stylesheet: `craft.designField.starterCss()` is kept so layouts compile, and does nothing;
-- the **Most used** list in long dropdowns;
-- `Design::EVENT_DEFINE_PANEL_GROUPS` (choices per entry);
 - the tools that move a Craft 5 site's option fields onto the field (`import`, `adopt`, `migrate`). Run those on Craft 5 with 1.x.
 
 ## Price
@@ -285,7 +282,37 @@ php artisan design-field:usage --json
 php artisan design-field:usage --months=12   # a yearly review: only blocks saved in the last year
 ```
 
+The counts also order **long dropdowns** (ten choices or more): the three most picked choices for that block type come first, under **Most used** (a block type with no picks for that option yet uses the counts across the site). The counts come from a queue job and are kept for a day.
+
 Per block, it shows the options editors never changed from the default (drop them from that block, or hardcode them in the template), options where every entry picked the same choice (make it the default), and layouts nobody uses. Blocks with fewer than `--sample` entries (default 5) are marked as hints.
+
+## Choices per entry
+
+Some choices only make sense for some entries: a "list the entries from this field" option should offer the fields the page has, not every field in the install. Before a panel is drawn, the plugin dispatches `wmd\designfield\events\DefinePanelGroups` with the element being edited and its options. Replace an option with `withHidden()` to leave choices out of the picker:
+
+```php
+use Illuminate\Support\Facades\Event;
+use wmd\designfield\events\DefinePanelGroups;
+
+Event::listen(DefinePanelGroups::class, function (DefinePanelGroups $event) {
+    $group = $event->groups['sourceField'] ?? null;
+    if ($group === null) {
+        return;
+    }
+    // Keep the choices already hidden for this block.
+    $event->groups['sourceField'] = $group->withHidden([...$group->hidden, 'legacyField']);
+});
+```
+
+Only the picker changes: every option stays valid, so stored values, presets and templates are unaffected, and a block that already has a hidden choice still shows it.
+
+To leave a whole option out of one entry's panel, add its handle to `$event->hiddenGroups`. It keeps its stored value, and options that depend on it still read it. `$event->keys` holds the current choices and `$event->element` the element.
+
+On Craft 5 this was the Yii event `Design::EVENT_DEFINE_PANEL_GROUPS`.
+
+## Starter stylesheet
+
+`{% do craft.designField.starterCss() %}` in the site layout adds the plugin's small starter stylesheet to the page's head: the entrance animations and plain-CSS classes for tone, spacing, container and alignment. Recolour it with custom properties: `:root { --df-brand: #0f766e; }`.
 
 ## GraphQL
 

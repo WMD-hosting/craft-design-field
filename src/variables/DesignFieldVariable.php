@@ -10,6 +10,7 @@ namespace wmd\designfield\variables;
 use ArrayAccess;
 use CraftCms\Cms\Element\Concerns\NestedElement;
 use CraftCms\Cms\Element\Contracts\ElementInterface;
+use CraftCms\Cms\Support\Facades\HtmlStack;
 use wmd\designfield\fields\Design;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
@@ -26,6 +27,11 @@ use wmd\designfield\services\Groups;
  */
 class DesignFieldVariable
 {
+    /**
+     * The starter stylesheet starterCss() adds to a page.
+     */
+    public const STARTER_CSS = __DIR__ . '/../web/assets/starter/dist/design-field.css';
+
     public function __construct(
         private readonly Groups $groups,
     ) {
@@ -128,8 +134,9 @@ class DesignFieldVariable
     }
 
     /**
-     * No-op until the starter stylesheet is ported; kept so the site layout's
-     * `{% do craft.designField.starterCss() %}` still compiles.
+     * Adds the starter options' stylesheet (plain-CSS classes and entrances) to the page:
+     * `{% do craft.designField.starterCss() %}` in the site layout. It is small (about 2 kB)
+     * and goes into the head as a `<style>` tag, once per page however often it is called.
      *
      * @return void
      *
@@ -138,6 +145,7 @@ class DesignFieldVariable
      */
     public function starterCss(): void
     {
+        HtmlStack::css((string)file_get_contents(self::STARTER_CSS), key: 'design-field-starter');
     }
 
     // Private Methods

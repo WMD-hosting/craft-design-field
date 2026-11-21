@@ -39,4 +39,7 @@ php artisan design-field:schema [--markdown] [--agents=FILE [--check]] - the opt
 php artisan design-field:usage [--types=a,b] [--all] [--min=N] [--sample=N] [--months=N] [--json] - which choices editors use: never-changed, one-value, used; unused options
 
 ## Not in 2.x (1.x only)
-settings page, block preview, Make tile pictures, Most used in long dropdowns, Design::EVENT_DEFINE_PANEL_GROUPS, import/adopt/migrate; craft.designField.starterCss() is a no-op
+settings page, block preview, Make tile pictures, import/adopt/migrate
+
+## Events
+wmd\designfield\events\DefinePanelGroups (Laravel event; Craft 5: Design::EVENT_DEFINE_PANEL_GROUPS): element, groups (replace a Group, e.g. ->withHidden([keys])), keys (read only), hiddenGroups[] (leave an option out of the panel; value kept)

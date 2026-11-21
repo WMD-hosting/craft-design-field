@@ -1,5 +1,12 @@
 # Release Notes for Design Field
 
+## Unreleased
+
+### Added
+- The starter stylesheet is back: `{% do craft.designField.starterCss() %}` in the site layout adds it to the page's head, once.
+- A site can trim a panel for the element being edited again. Listen for `wmd\designfield\events\DefinePanelGroups` (a Laravel event, in place of `Design::EVENT_DEFINE_PANEL_GROUPS`): replace an option with `withHidden()` to leave choices out of the picker, or add its handle to `hiddenGroups` to leave the whole option out. Stored values, validation and templates are unaffected.
+- "Most used" is back: a dropdown of ten choices or more lists the three most picked choices for that block type first, under their own heading. The counts come from a queue job and are kept for a day.
+
 ## 2.0.0-beta.1 - 2026-11-21
 
 > {warning} Design Field 2 is for Craft CMS 6 and is a beta, as Craft 6 is. The parts of 1.x it does not have yet are listed under Removed. Craft 5 sites stay on 1.x.
