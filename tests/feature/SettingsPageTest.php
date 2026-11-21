@@ -76,7 +76,7 @@ final class SettingsPageTest extends PluginTestCase
         self::assertSame(['Configuration', 'Usage'], array_column($props->subnav, 'label'));
         self::assertSame([true, false], array_column($props->subnav, 'selected'));
         self::assertStringEndsWith('settings/plugins/design-field?tab=usage', $props->subnav[1]->url ?? $props->subnav[1]->href);
-        self::assertTrue($props->readOnly, 'nothing to save');
+        self::assertObjectNotHasProperty('submit', $props, 'nothing to save');
 
         $nodes = self::nodes($props);
         self::assertSame('success', $nodes['configuration-verdict']->props->variant);
@@ -154,15 +154,16 @@ final class SettingsPageTest extends PluginTestCase
         self::assertStringContainsString('<strong>2</strong> blocks with findings', $nodes['usage-totals']->props->html);
 
         // Three pages: every CTA is dark, spacing was never touched; every team block is on the default.
-        $cta = array_column($nodes['usage-blockCta']->props->rows, null, 'id');
-        self::assertSame('Always "dark" (3 of 3): make it the default?', $cta['tone']->finding);
-        self::assertSame('Dark 3 · never picked: Light', $cta['tone']->choices);
-        self::assertStringContainsString('Never changed from "normal"', $cta['spacing']->finding);
-        self::assertSame('Normal 3 (default) · never picked: Tight, Loose', $cta['spacing']->choices);
-        self::assertStringContainsString('<code>spacing</code>', $cta['spacing']->option->html);
-        self::assertSame('Light 3 (default) · never picked: Dark', $nodes['usage-blockTeam']->props->rows[0]->choices);
-        self::assertStringContainsString('blockCta (3 entries)', $nodes['usage-heading-blockCta']->props->content ?? $nodes['usage-heading-blockCta']->props->html);
-        self::assertStringContainsString('hint', $nodes['usage-heading-blockCta']->props->description);
+        $table = $nodes['usage-blocks']->props;
+        $rows = array_column($table->rows, null, 'id');
+        self::assertSame(['blockCta', 'blockTeam'], array_keys($rows), 'one row per block');
+        self::assertSame('Tone: Dark', $rows['blockCta']->same);
+        self::assertSame('Spacing: Normal', $rows['blockCta']->never);
+        self::assertSame('Tone: Light', $rows['blockTeam']->never);
+        self::assertSame('', $rows['blockTeam']->same);
+        self::assertSame('3 (few: a hint)', $rows['blockCta']->entries);
+        self::assertStringContainsString('/settings/entry-types/', $rows['blockCta']->block->url);
+        self::assertTrue($table->searchable);
 
         self::assertSame(['dark' => 3], app(Usage::class)->counts()['blockCta']['tone'], 'the counts behind "Most used"');
     }
@@ -175,7 +176,7 @@ final class SettingsPageTest extends PluginTestCase
         $nodes = self::nodes(self::props($this->get(self::URL . '?tab=usage&run=1&months=6')));
 
         self::assertStringContainsString('<strong>Last 6 months</strong>', $nodes['usage-period']->props->html);
-        self::assertArrayHasKey('usage-blockCta', $nodes, 'the pages were saved just now');
+        self::assertCount(2, $nodes['usage-blocks']->props->rows, 'the pages were saved just now');
         self::assertSame(['dark' => 40], Cache::get(Usage::COUNTS_KEY)['blockCta']['tone'], 'a window would shrink the counts');
 
         // Any other number of months counts everything.

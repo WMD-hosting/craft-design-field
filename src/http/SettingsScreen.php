@@ -10,7 +10,6 @@ namespace wmd\designfield\http;
 use CraftCms\Cms\Cp\Data\NavItem;
 use CraftCms\Cms\Entry\EntryTypes;
 use CraftCms\Cms\Http\Responses\CpScreenResponse;
-use CraftCms\Cms\Support\Html;
 use CraftCms\Cms\Support\Url;
 use CraftCms\Cms\Ui\Contracts\Node;
 use CraftCms\Cms\Ui\Nodes\Callout;
@@ -102,7 +101,7 @@ class SettingsScreen
             ->addCrumb('Plugins', 'settings/plugins')
             ->subnav($subnav)
             // The nodes go out as a list: the Ui page reads `ui.nodes` as a JSON array.
-            ->ui(Ui::make(array_values($nodes)), new UiContext(), ['readOnly' => true, 'contentMaxWidth' => false]);
+            ->ui(Ui::make(array_values($nodes)), new UiContext(), ['contentMaxWidth' => false]);
     }
 
     /**
@@ -170,8 +169,8 @@ class SettingsScreen
                 'finding' => $finding['message'],
                 '_status' => match ($finding['level']) {
                     Health::ERROR => 'expired',
-                    Health::WARNING => 'pending',
-                    default => 'disabled',
+                    Health::WARNING => 'warning',
+                    default => 'grey',
                 },
             ];
         }
@@ -186,7 +185,7 @@ class SettingsScreen
     }
 
     /**
-     * What `design-field:usage` prints, one table per block. Counting reads every
+     * What `design-field:usage` prints, one table row per block. Counting reads every
      * entry, so it runs only when asked (`run=1`).
      *
      * @param Request $request
@@ -248,56 +247,62 @@ class SettingsScreen
             $nodes[] = Callout::make('usage-none', $report === [] ? 'No block with a Design field has entries yet.' : 'Nothing to tidy: every option is in use.')->variant($report === [] ? 'info' : 'success');
         }
 
-        // Blocks with few entries come last: their findings are hints, not evidence.
-        $types = $summary['types'];
-        uasort($types, static fn(array $a, array $b) => ($a['entries'] < self::SAMPLE) <=> ($b['entries'] < self::SAMPLE));
-
-        foreach ($types as $type => $data) {
-            $entryType = $this->entryTypes->getEntryTypeByHandle($type);
-            $heading = sprintf('%s (%d %s)', $entryType?->name ?? $type, $data['entries'], $data['entries'] === 1 ? 'entry' : 'entries');
-
-            $nodes[] = Heading::make("usage-heading-$type", $heading)
-                ->description($data['entries'] < self::SAMPLE ? 'Few entries: treat these as a hint.' : null);
-            $nodes[] = Table::make("usage-$type")
-                ->columns([
-                    ['key' => 'option', 'label' => 'Option', 'width' => '1fr'],
-                    ['key' => 'finding', 'label' => 'Finding', 'wrap' => true, 'width' => '2fr'],
-                    ['key' => 'choices', 'label' => 'Choices picked', 'wrap' => true, 'width' => '2fr'],
-                ])
-                ->rows(array_map(static fn(array $finding) => [
-                    'id' => $finding['handle'],
-                    'option' => ['html' => Html::encode($finding['label']) . ' ' . Html::tag('code', Html::encode($finding['handle']))],
-                    'finding' => ucfirst($finding['text']),
-                    'choices' => self::choices($finding, $registry->groupsFor($type)[$finding['handle']] ?? null),
-                ], $data['findings']));
+        if ($summary['types'] !== []) {
+            $nodes[] = $this->usageTable($summary['types'], $registry);
         }
 
         return $nodes;
     }
 
     /**
-     * Every choice of an option with how many entries picked it, most picked first,
-     * then the ones nobody picked.
+     * One row per block: the options nobody changed and the ones where every entry
+     * picked the same choice. Blocks with few entries come last: hints, not evidence.
      *
-     * @param array{counts:array<string,int>,default:string} $finding
-     * @param ?\wmd\designfield\models\Group $group
-     * @return string
+     * @param array<string,array{entries:int,findings:list<array<string,mixed>>}> $types UsageReport::summarize()['types']
+     * @param Registry $registry
+     * @return Table
      */
-    private static function choices(array $finding, mixed $group): string
+    private function usageTable(array $types, Registry $registry): Table
     {
-        $label = static fn(string $key): string => (string)($group?->options[$key]['label'] ?? $key);
-        $parts = [];
+        uasort($types, static fn(array $a, array $b) => ($a['entries'] < self::SAMPLE) <=> ($b['entries'] < self::SAMPLE));
+        $rows = [];
 
-        foreach ($finding['counts'] as $key => $count) {
-            $parts[] = sprintf('%s %d%s', $label((string)$key), $count, (string)$key === $finding['default'] ? ' (default)' : '');
+        foreach ($types as $type => $data) {
+            $groups = $registry->groupsFor($type);
+            $label = static fn(string $handle, ?string $key): string => (string)(($groups[$handle] ?? null)?->options[(string)$key]['label'] ?? $key);
+            $never = [];
+            $same = [];
+
+            foreach ($data['findings'] as $finding) {
+                if ($finding['verdict'] === UsageReport::ONE_VALUE) {
+                    $same[] = sprintf('%s: %s', $finding['label'], $label($finding['handle'], $finding['value']));
+                } elseif ($finding['unused'] !== []) {
+                    // A layout list: which layouts nobody picked matters more than the default.
+                    $never[] = sprintf('%s: %s (never picked: %s)', $finding['label'], $label($finding['handle'], $finding['default']), implode(', ', array_map(static fn(string $key) => $label($finding['handle'], $key), $finding['unused'])));
+                } else {
+                    $never[] = sprintf('%s: %s', $finding['label'], $label($finding['handle'], $finding['default']));
+                }
+            }
+
+            $entryType = $this->entryTypes->getEntryTypeByHandle($type);
+            $rows[] = [
+                'id' => $type,
+                'block' => $entryType === null ? $type : ['label' => $entryType->name, 'url' => Url::cpUrl("settings/entry-types/$entryType->id")],
+                'entries' => $data['entries'] < self::SAMPLE ? sprintf('%d (few: a hint)', $data['entries']) : $data['entries'],
+                'never' => implode(' · ', $never),
+                'same' => implode(' · ', $same),
+                '_sort' => ['entries' => $data['entries']],
+            ];
         }
 
-        $unpicked = array_diff(array_map('strval', array_keys($group?->options ?? [])), array_map('strval', array_keys($finding['counts'])));
-
-        if ($unpicked !== []) {
-            $parts[] = 'never picked: ' . implode(', ', array_map($label, $unpicked));
-        }
-
-        return implode(' · ', $parts);
+        return Table::make('usage-blocks')
+            ->columns([
+                ['key' => 'block', 'label' => 'Block', 'sortable' => true],
+                ['key' => 'entries', 'label' => 'Entries', 'sortable' => true, 'thin' => true],
+                ['key' => 'never', 'label' => 'Never changed from the default: drop or hardcode', 'wrap' => true],
+                ['key' => 'same', 'label' => 'Always the same choice: make it the default', 'wrap' => true],
+            ])
+            ->rows($rows)
+            ->searchable('Find a block or an option');
     }
 }
