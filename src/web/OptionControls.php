@@ -12,7 +12,6 @@ use CraftCms\Cms\Ui\Contracts\Control;
 use CraftCms\Cms\Ui\Contracts\Node;
 use CraftCms\Cms\Ui\Controls\Choice;
 use CraftCms\Cms\Ui\Controls\Lightswitch;
-use CraftCms\Cms\Ui\Controls\Range;
 use CraftCms\Cms\Ui\Enums\ChoicePresentation;
 use CraftCms\Cms\Ui\Enums\FieldWidth;
 use CraftCms\Cms\Ui\Nodes\Field;
@@ -22,11 +21,13 @@ use CraftCms\Cms\Ui\Ui;
 use wmd\designfield\fields\Design;
 use wmd\designfield\helpers\Motion;
 use wmd\designfield\helpers\Positions;
-use wmd\designfield\helpers\Registry;
 use wmd\designfield\helpers\Sections;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
+use wmd\designfield\web\controls\Grid;
+use wmd\designfield\web\controls\Rendered;
+use wmd\designfield\web\controls\Steps;
 
 /**
  * The Design panel as a Craft UI: one field per option, on the controls of
@@ -120,6 +121,55 @@ class OptionControls
     }
 
     /**
+     * The presets a block offers, as the preset row takes them: each option's value as
+     * that option's control holds it, and a line naming every choice for the tooltip.
+     *
+     * @param array<int,array{label:string,values:array<string,string>}> $presets From Registry::presetsFor()
+     * @param array<string,Group> $groups The block's options
+     * @return list<array{label:string,summary:string,values:array<string,string|bool>}>
+     *
+     * @author WMD
+     * @since 2.1.0
+     */
+    public static function presets(array $presets, array $groups): array
+    {
+        $rows = [];
+
+        foreach ($presets as $preset) {
+            $values = [];
+            $summary = [];
+
+            foreach ($preset['values'] as $handle => $key) {
+                $values[$handle] = self::controlValue($groups[$handle], $key);
+                $summary[] = $groups[$handle]->label . ': ' . $groups[$handle]->options[$key]['label'];
+            }
+
+            $rows[] = ['label' => $preset['label'], 'summary' => implode(' · ', $summary), 'values' => $values];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * A choice as the option's control holds it: a switch true/false, the rest the key.
+     *
+     * @param Group $group
+     * @param string $key
+     * @return string|bool
+     *
+     * @author WMD
+     * @since 2.1.0
+     */
+    public static function controlValue(Group $group, string $key): string|bool
+    {
+        if (self::isSwitch($group)) {
+            return $key === (string)array_keys($group->options)[1];
+        }
+
+        return $key;
+    }
+
+    /**
      * The panel for one block: its options under their section headings.
      *
      * @param array<string,Group> $groups The block's options, in panel order
@@ -206,7 +256,7 @@ class OptionControls
      */
     public static function control(Group $group, string $selected): Control
     {
-        if ($group->input === Group::INPUT_TOGGLE && count($group->options) === 2) {
+        if (self::isSwitch($group)) {
             [$off, $on] = array_map('strval', array_keys($group->options));
 
             return Lightswitch::make($group->handle)
@@ -217,24 +267,53 @@ class OptionControls
                 ->value($selected === $on);
         }
 
-        // A slider posts the choice's place on the scale, under its own key (Registry::SLIDER_KEY)
-        // so it is never read as a key itself. A choice the slider leaves out keeps buttons.
-        $steps = $group->sliderKeys();
-        $step = array_search($selected, $steps, true);
+        // A slider shows every choice's name under its track and posts the chosen key, like
+        // the buttons; Block default is a button before it (no point on the scale). A choice
+        // the slider leaves out (hidden) keeps buttons while it is chosen.
+        $keys = $group->sliderKeys();
+        $steps = array_values(array_filter($keys, static fn(string $key) => !self::isTextCell($key)));
 
-        if ($group->input === Group::INPUT_SLIDER && $step !== false && count($steps) >= 2) {
-            return Range::make([Registry::SLIDER_KEY, $group->handle])
-                ->min(0)
-                ->max(count($steps) - 1)
-                ->step(1)
-                ->suffix($group->options[$selected]['label'])
+        if ($group->input === Group::INPUT_SLIDER && in_array($selected, $keys, true) && count($steps) >= 2) {
+            $choice = static fn(string $key) => ['value' => $key, 'label' => (string)$group->options[$key]['label']];
+
+            return Steps::make($group->handle)
+                ->text(count($steps) < count($keys) ? $choice(Group::AUTO) : null)
+                ->steps(array_map($choice, $steps))
                 ->reactive()
-                ->value($step);
+                ->value($selected);
+        }
+
+        if ($group->input === Group::INPUT_POSITION) {
+            return self::gridControl($group, $selected);
+        }
+
+        // Rendered cards need the site's stylesheet; without one they stay named radios.
+        if ($group->input === Group::INPUT_RENDERED) {
+            $stylesheet = trim((string)app(Groups::class)->config()['previewStylesheet']);
+
+            if ($stylesheet !== '') {
+                return self::renderedControl($group, $selected, $stylesheet);
+            }
+        }
+
+        $options = self::options($group, $selected);
+        $presentation = self::presentation($group);
+
+        // Buttons that only draw (colour chips, icons without names) never show which one is
+        // chosen: as the grid control, the chosen one's name is read out beside them.
+        $drawn = $presentation === ChoicePresentation::Buttons ? self::drawnCells($group, $options) : null;
+
+        if ($drawn !== null) {
+            return Grid::make($group->handle)
+                ->text($drawn['text'])
+                ->cells($drawn['cells'])
+                ->reactive()
+                ->value($selected);
         }
 
         $control = Choice::make($group->handle)
-            ->options(self::options($group, $selected))
-            ->presentation(self::presentation($group))
+            ->options($options)
+            ->presentation($presentation)
             ->withoutPlaceholder()
             ->reactive()
             ->value($selected);
@@ -268,7 +347,8 @@ class OptionControls
     }
 
     /**
-     * The choices of one option, as the kit's Choice control takes them.
+     * The choices of one option, as the kit's Choice control takes them (position options
+     * have their own control, see gridControl()).
      * Choices the picker leaves out (`hidden`) are listed only while chosen.
      *
      * @param Group $group
@@ -281,26 +361,17 @@ class OptionControls
     public static function options(Group $group, string $selected): array
     {
         $options = [];
-        $grid = $group->input === Group::INPUT_POSITION ? self::grid($group) : null;
 
-        foreach ($grid['order'] ?? array_keys($group->options) as $key) {
+        foreach (array_keys($group->options) as $key) {
             $key = (string)$key;
             $option = $group->options[$key];
 
             if ($key !== $selected && in_array($key, $group->hidden, true)) {
-                // In a grid or the corners, a cell's place is its position: keep the hidden
-                // one's place empty so the cells after it do not move.
-                if (in_array($grid['set'] ?? null, [Positions::GRID, Positions::CORNERS], true)) {
-                    $options[] = ['label' => $option['label'], 'value' => $key, 'disabled' => true, 'labelHtml' => OptionLabels::gap($grid['columns'])];
-                }
-
                 continue;
             }
 
             $choice = ['label' => $option['label'], 'value' => $key];
-            $labelHtml = $grid !== null
-                ? self::cellHtml($group, $key, $grid)
-                : self::labelHtml($group, $option);
+            $labelHtml = self::labelHtml($group, $option);
 
             if ($labelHtml !== null) {
                 $choice['labelHtml'] = $labelHtml;
@@ -326,6 +397,132 @@ class OptionControls
         }
 
         return $options;
+    }
+
+    /**
+     * A position option as the grid control: the text choice, then the cells in grid order.
+     * Choices the picker leaves out (`hidden`) are listed only while chosen; in a nine-point
+     * grid or the corners their place stays empty, so the other cells do not move.
+     *
+     * @param Group $group
+     * @param string $selected The current choice
+     * @return Grid
+     *
+     * @author WMD
+     * @since 2.1.0
+     */
+    public static function gridControl(Group $group, string $selected): Grid
+    {
+        $grid = self::grid($group);
+        $keepsPlaces = in_array($grid['set'], [Positions::GRID, Positions::CORNERS], true);
+        $text = null;
+        $cells = [];
+
+        foreach ($grid['order'] as $key) {
+            $key = (string)$key;
+            $option = $group->options[$key];
+            $left = $key !== $selected && in_array($key, $group->hidden, true);
+
+            if (self::isTextCell($key)) {
+                $text = $left ? null : ['value' => $key, 'label' => (string)$option['label']];
+                continue;
+            }
+
+            if ($left) {
+                if ($keepsPlaces) {
+                    $cells[] = ['value' => $key, 'label' => (string)$option['label'], 'gap' => true];
+                }
+
+                continue;
+            }
+
+            $cells[] = [
+                'value' => $key,
+                'label' => (string)$option['label'],
+                // Outside a position set a dot says nothing: a cell without an icon shows its name.
+                'html' => OptionLabels::drawn($option['icon'], $grid['places'][$key] ?? null, $grid['set'] !== null),
+            ];
+        }
+
+        return Grid::make($group->handle)
+            ->columns($grid['columns'])
+            ->text($text)
+            ->cells($cells)
+            ->reactive()
+            ->value($selected);
+    }
+
+    /**
+     * Button choices that all draw something instead of showing their name (colour chips,
+     * icons-only buttons), as grid cells: the text choice (Block default with no drawing)
+     * apart, the rest drawn. Null when any choice shows its name, or fewer than two draw.
+     *
+     * @param Group $group
+     * @param list<array<string,mixed>> $options From options()
+     * @return array{text:?array{value:string,label:string},cells:list<array{value:string,label:string,html:string}>}|null
+     *
+     * @author WMD
+     * @since 2.1.0
+     */
+    public static function drawnCells(Group $group, array $options): ?array
+    {
+        $text = null;
+        $cells = [];
+
+        foreach ($options as $option) {
+            $key = (string)$option['value'];
+            $html = match (true) {
+                isset($option['labelHtml']) && str_contains($option['labelHtml'], 'df-label--drawn') => $option['labelHtml'],
+                isset($option['icon']) && $group->iconsOnly => OptionLabels::glyph($option['icon']),
+                default => null,
+            };
+
+            if ($html !== null) {
+                $cells[] = ['value' => $key, 'label' => (string)$option['label'], 'html' => $html];
+            } elseif (self::isTextCell($key) && $text === null) {
+                $text = ['value' => $key, 'label' => (string)$option['label']];
+            } else {
+                return null;
+            }
+        }
+
+        return count($cells) >= 2 ? ['text' => $text, 'cells' => $cells] : null;
+    }
+
+    /**
+     * A rendered option as cards drawn with the site's stylesheet and brand attributes
+     * (`previewAttributes`). Choices the picker leaves out (`hidden`) are listed only while chosen.
+     *
+     * @param Group $group
+     * @param string $selected The current choice
+     * @param string $stylesheet The site's built stylesheet URL
+     * @return Rendered
+     *
+     * @author WMD
+     * @since 2.1.0
+     */
+    public static function renderedControl(Group $group, string $selected, string $stylesheet): Rendered
+    {
+        $choices = [];
+
+        foreach ($group->options as $key => $option) {
+            $key = (string)$key;
+
+            if ($key !== $selected && in_array($key, $group->hidden, true)) {
+                continue;
+            }
+
+            $choices[] = ['value' => $key, 'label' => (string)$option['label'], 'preview' => $option['preview']];
+        }
+
+        $attributes = array_map('strval', (array)app(Groups::class)->config()['previewAttributes']);
+
+        return Rendered::make($group->handle)
+            ->stylesheet($stylesheet)
+            ->attributes($attributes)
+            ->choices($choices)
+            ->reactive()
+            ->value($selected);
     }
 
     /**
@@ -401,6 +598,17 @@ class OptionControls
     // =========================================================================
 
     /**
+     * Whether an option is drawn as a switch: a toggle with two choices, off then on.
+     *
+     * @param Group $group
+     * @return bool
+     */
+    private static function isSwitch(Group $group): bool
+    {
+        return $group->input === Group::INPUT_TOGGLE && count($group->options) === 2;
+    }
+
+    /**
      * Whether a position choice is the text cell above the grid (`auto`: Block default).
      *
      * @param string $key
@@ -409,26 +617,6 @@ class OptionControls
     private static function isTextCell(string $key): bool
     {
         return $key === Group::AUTO;
-    }
-
-    /**
-     * The label of a position cell.
-     *
-     * @param Group $group
-     * @param string $key
-     * @param array{columns:int,order:list<string>,set:?string,places:array<string,string>} $grid
-     * @return string
-     */
-    private static function cellHtml(Group $group, string $key, array $grid): string
-    {
-        $option = $group->options[$key];
-
-        if (self::isTextCell($key)) {
-            return OptionLabels::textCell($option['label'], $grid['columns']);
-        }
-
-        // Outside a position set a dot says nothing: a cell without an icon shows its name.
-        return OptionLabels::cell($option['label'], $grid['columns'], $option['icon'], $grid['places'][$key] ?? null, $grid['set'] !== null);
     }
 
     /**

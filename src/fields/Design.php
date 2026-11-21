@@ -21,7 +21,6 @@ use CraftCms\Cms\Support\Json;
 use CraftCms\Cms\Support\Query;
 use CraftCms\Cms\Ui\Contracts\Control;
 use CraftCms\Cms\Ui\Controls\Choice;
-use CraftCms\Cms\Ui\Controls\ContentBlock;
 use CraftCms\Cms\Ui\Controls\Textarea;
 use CraftCms\Cms\Ui\Nodes\Field as UiField;
 use CraftCms\Cms\Ui\Ui;
@@ -35,6 +34,7 @@ use wmd\designfield\fields\conditions\DesignVariantConditionRule;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
+use wmd\designfield\web\controls\PresetBlock;
 use wmd\designfield\web\OptionControls;
 
 /**
@@ -270,13 +270,20 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
 
         // A profile can show its panel in another mode, and a new element starts with a
         // closed panel open: that is when the editor picks how it looks.
-        $mode = app(Groups::class)->getRegistry()->viewFor($this->profilesFor($context->element)) ?? $this->viewMode;
+        $registry = app(Groups::class)->getRegistry();
+        $profiles = $this->profilesFor($context->element);
+        $mode = $registry->viewFor($profiles) ?? $this->viewMode;
         $element = $context->element;
         $isNew = $element === null || $element->id === null || $element->getIsUnpublishedDraft();
+        $presets = OptionControls::presets($registry->presetsFor($profiles, $value->groups()), $value->groups());
 
-        return ContentBlock::make($context->path)
+        // A preset sets several options at once; the panel then refreshes once, so options
+        // that wait for another one (showIf) follow, as after a pick of a single option.
+        return PresetBlock::make($context->path)
             ->viewMode('grouped')
             ->clearable(false)
+            ->presets($presets)
+            ->reactive($presets !== [])
             ->ui(OptionControls::panel($value, $mode, $isNew, $this->optionLayout))
             ->value([]);
     }
