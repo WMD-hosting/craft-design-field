@@ -9,6 +9,7 @@ namespace wmd\designfield\services;
 
 use CraftCms\Cms\Support\Json;
 use InvalidArgumentException;
+use wmd\designfield\helpers\InputOverrides;
 use wmd\designfield\helpers\Registry;
 
 /**
@@ -149,8 +150,15 @@ class Groups
             return $this->config;
         }
 
-        $path = config_path(self::CONFIG_FILE);
-        $config = is_file($path) ? require $path : [];
+        $config = $this->fileConfig();
+        $saved = app(SettingsFile::class)->read();
+
+        // What the settings page saved comes last: its looks win entry by entry, and its
+        // presets apply unless the file names `presets` itself (the page then shows them read only).
+        $config['inputs'] = InputOverrides::merge($config['inputs'] ?? [], $saved['inputs']);
+        if (!array_key_exists('presets', $config)) {
+            $config['presets'] = $saved['presets'];
+        }
 
         return $this->config = $config + [
             'groups' => [],
@@ -167,6 +175,39 @@ class Groups
             'tileSkip' => '',
             'previewAttributes' => [],
         ];
+    }
+
+    /**
+     * What `config/craft/design-field.php` returns, as written: no defaults, and nothing
+     * the settings page saved.
+     *
+     * @return array<string,mixed>
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function fileConfig(): array
+    {
+        $path = config_path(self::CONFIG_FILE);
+        $config = is_file($path) ? require $path : [];
+
+        return is_array($config) ? $config : [];
+    }
+
+    /**
+     * A registry for the configuration with some keys replaced, to check looks or
+     * presets before the settings page saves them.
+     *
+     * @param array<string,mixed> $overrides
+     * @return Registry
+     * @throws InvalidArgumentException if the configuration does not build with them
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function registryWith(array $overrides): Registry
+    {
+        return Registry::fromConfig($overrides + ['tileImage' => $this->tileImage(...)] + $this->config(), $this->loadTokens(...));
     }
 
     /**

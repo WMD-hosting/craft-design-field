@@ -2,7 +2,8 @@
 
 The 1.x settings page (Settings → Plugins → Design Field) comes to 2.x in stages. Each stage is one pull
 request into `2.x` that can be released on its own. The config file `config/craft/design-field.php` stays
-the whole configuration: nothing on the page saves a setting until stage 4 is decided.
+the place for groups, options and profiles; stage 4 adds a second file for the looks and presets
+edited on the page.
 
 ## How the page is built
 
@@ -95,38 +96,38 @@ the whole configuration: nothing on the page saves a setting until stage 4 is de
   layout, a path as a key, another width, another image type and an oversized body are refused and
   nothing is written; the route carries `RequireAdmin` and `RequireAdminChanges`.
 
-## Stage 4: Looks and Presets (not started: needs a decision)
+## Stage 4: Looks and Presets
 
-On 1.x the **Looks** tab (a quick switch of one input style for another, one row per option with its
-look, labels, icons and section) and the **Presets** tab (one row per preset) saved to project config as
-`inputs` and `presetRows`. On 2.x the config file is the whole configuration, so where such edits would
-be stored has to be decided before anything is built.
+Decided by wmd on 21.11.2026: the page writes a file beside the config file.
 
-What is already there for it, whatever the storage: `helpers\Registry` reads `inputs` and `presets`
-from the configuration array and applies them (`inputs` last, so they win over `groupOverrides` and
-`profileOverrides`); `helpers\InputOverrides` cleans a posted `inputs` array and prunes what no
-longer matches an option; `helpers\StyleChoices` lists the looks an option can take and the rows of
-the Looks table; `helpers\SettingsRows::presets()` / `presetRows()` turn preset table rows into the
-`presets` array and back, and `Registry::invalidPresetChoices()` names choices no block has. The
-Preview tab of stage 2 would show a pending look before it is saved, as on 1.x.
+| | |
+|---|---|
+| Screen | `?tab=looks` and `?tab=presets` |
+| Routes | `routes/cp.php`: `POST design-field/settings/looks`, `POST design-field/settings/presets` |
+| Permissions | admin and `RequireAdminChanges`; with admin changes off the tabs show read only |
+| Reused | `helpers\StyleChoices` (`rows()`, `value()`, `style()`: the Looks table and its choices), `helpers\InputOverrides` (`clean()`, `prune()`, new `merge()`), `helpers\SettingsRows` (`presets()`, `presetRows()`), `helpers\Registry` (`invalidPresetChoices()`, and it already applies `inputs` and `presets`) |
 
-Where the edits could live:
-
-1. **A second file the page writes, next to the config file** (recommended):
-   `config/craft/design-field.settings.json`, holding only `inputs` and `presets`. `Groups::config()`
-   lays it over `design-field.php`. It is a site file like the tile pictures: written only where admin
-   changes are allowed, committed with the site, deployed with the code, read-only on production. The
-   hand-written file stays the place for groups, options and profiles; the page never rewrites PHP.
-   As on 1.x, a `presets` key in `design-field.php` makes the Presets tab read-only.
-2. **No storage: the tabs write the config for you.** Looks and Presets are worked out on the page
-   with the live preview, and the page shows the `inputs` / `presets` array to paste into
-   `design-field.php`. The config file stays the only source; the cost is a copy and paste per change.
-   The cheapest to build, and the fallback if a written file is not wanted.
-3. **Project config, as on 1.x** (`plugins.design-field.settings`). It syncs between environments by
-   itself, but it is a second source of configuration beside the file, which the decision of
-   10.11.2026 ruled out.
-
-A database table is not an option: the looks would not deploy with the site.
+- **Storage:** `services\SettingsFile` reads and writes `config/craft/design-field.settings.json`, holding
+  only `inputs` and `presets`. `Groups::config()` lays it over `design-field.php` (`Groups::fileConfig()`
+  is that file as written): saved `inputs` win entry by entry, saved `presets` apply unless the config
+  file has a `presets` key. A file that is not JSON is ignored. With nothing to keep the file is removed.
+- **Looks:** a quick switch per style in use (`inputs.styles`), and one editable table row per option
+  with its look on every block (`inputs.groups`, the choices per row from `StyleChoices`) and its
+  section (`inputs.sections`). A save replaces those three parts and keeps the rest of the saved
+  `inputs`; it is checked by building the registry with it, and pruned of looks for options that are gone.
+- **Presets:** an editable table (block, name, choices as `group=key`). A save is refused with the
+  reason when a choice is malformed or names a group or key no block has. With `presets` in the config
+  file the tab is read only and the route answers 409.
+- Each tab keeps what the other saved.
+- **Not in this stage** (1.x had them on the Looks tab): a look for one block only ("Customize this
+  block"), other labels and icons for an option's choices, and the live preview of a look before it is
+  saved. The file format already carries the first two (`inputs.profiles`, `inputs.meta`), so a later
+  stage can add the screens without a migration.
+- **Tests:** `LooksPresetsTest`: the configuration without, with and with a broken settings file, and
+  with `presets` in the config file; the Presets tab saves rows, shows them and the panel gets the
+  preset; invalid choices are refused; presets in the config file show read only; the Looks tab lists
+  every option; a look, a swap and a section are saved, the registry reads them and the other parts of
+  the file are kept; read only and refused with admin changes off; the routes carry both middlewares.
 
 ## Not ported
 
