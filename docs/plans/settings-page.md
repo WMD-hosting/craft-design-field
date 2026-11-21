@@ -53,29 +53,33 @@ the whole configuration: nothing on the page saves a setting until stage 4 is de
 | | |
 |---|---|
 | Screen | `?tab=preview&block=<profile>` |
-| Routes | `routes/actions.php`: `POST design-field/preview/panel` (the panel's Ui for another block) |
-| Permissions | admin; reading only, so it works with admin changes off |
-| Reused | `fields\Design::uiControl()` and `web\OptionControls` (the real panel, its presets and defaults), `services\Groups` (`getRegistry()`, `tileImage()`), the four Vue controls in `resources/js` |
+| Routes | `routes/cp.php`: `POST design-field/preview/ui?block=<profile>` (the tab's Ui built again for the choices the panel holds) |
+| Permissions | admin (`RequireAdmin`); reading only, so it works with admin changes off |
+| Reused | `fields\Design::uiControl()` and `web\OptionControls` (the real panel, its presets and defaults), `web\controls\PresetBlock`, `services\Groups`, the Vue controls in `resources/js` |
 
 - The real Design panel of one block, picked from a dropdown of the profiles (the block with the most
   options first), with its defaults and presets. It is a Ui form without a submit: nothing is saved.
-  Under it, the block's group handles and keys, for writing preset choices in the config file.
+  Picking a block opens its URL (`design-field:block-picker`), so the page, its address and the panel's
+  refreshes name the same block. Under the panel, the block's group handles and keys, for writing
+  preset choices in the config file.
+- The panel refreshes as it does in an element's form: the Ui page posts the panel's values and its
+  scope to the route, which builds the tab again and answers with that scope.
 - With `blockPreviewUrl` in the config file (`/_design-field/block?type={type}&design={design}`), the
-  block itself in an iframe beside the panel, at desktop (1280), tablet (768) and mobile (375) width,
-  scaled to fit and reloaded on each change of the panel. This part needs a small page script, built
-  with the others into `public/build`.
-- `examples/block-preview.twig` comes back in a Craft 6 form (a route in `routes/web.php` of the site,
-  `currentUser` checked for control panel access, `setFieldValue` for this render only).
-- **Tests:** `PreviewTabTest`: the tab lists the profiles and shows the panel nodes of the picked one;
-  an unknown block falls back; the frame URL is there only with `blockPreviewUrl`; the action answers
-  admins only and saves nothing.
+  panel's control becomes `design-field:preview` (`PresetBlock::frame()`): the panel and, beside it, the
+  block in an iframe at desktop (1280), tablet (768) or mobile (375) width, scaled to fit and loaded
+  again after each change. `{design}` is the panel's choices as JSON, switches as their keys.
+- `examples/block-preview.twig` comes back in a Craft 6 form (a Laravel route with `TemplateRoute`,
+  `Request.query()`, `setFieldValue` for this render only).
+- **Tests:** `PreviewTabTest`: the tab lists the profiles and shows the panel of the picked one; an
+  unknown block falls back; the frame is there only with `blockPreviewUrl`; the refresh route answers
+  for the panel's scope and for the whole tab, for admins only, and saves nothing.
 
 ## Stage 3: Make tile pictures
 
 | | |
 |---|---|
 | Screen | a button on the Preview tab, shown when the block has layouts, `blockPreviewUrl` and `tileImages` are set and admin changes are allowed |
-| Routes | `routes/actions.php`: `POST design-field/tiles/save` |
+| Routes | `routes/cp.php`: `POST design-field/tiles/save` |
 | Permissions | admin and `RequireAdminChanges` (the pictures are site files that belong in the repository) |
 | Reused | `services\Groups` (`tilePath()`, `tileImage()`), `helpers\Registry` (the block's layout list), `modern-screenshot` as on 1.x (MIT, shipped with the build) |
 

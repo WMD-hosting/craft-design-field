@@ -143,15 +143,22 @@ onBeforeUnmount(() => {
   align-items: start;
 }
 
-/* Side by side from about a laptop's content width; under that the block goes below. */
-@container (min-width: 60rem) {
+/* Side by side from a laptop's content width, so a change and the block are seen together;
+   under that the block goes below. A wide screen gives the block the larger share. */
+@container (min-width: 46rem) {
   .df-preview__grid[data-framed='true'] {
-    grid-template-columns: minmax(22rem, 2fr) minmax(0, 3fr);
+    grid-template-columns: minmax(20rem, 1fr) minmax(0, 1fr);
   }
 
   .df-preview__block {
     position: sticky;
     top: var(--c-spacing-lg, 24px);
+  }
+}
+
+@container (min-width: 75rem) {
+  .df-preview__grid[data-framed='true'] {
+    grid-template-columns: minmax(22rem, 2fr) minmax(0, 3fr);
   }
 }
 
