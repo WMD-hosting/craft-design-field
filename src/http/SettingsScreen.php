@@ -331,10 +331,10 @@ class SettingsScreen
             ->control(ControlTable::make('looks')
                 ->keyed()
                 ->columns([
-                    'option' => ['heading' => 'Option', 'type' => 'heading'],
-                    'blocks' => ['heading' => 'Blocks', 'type' => 'heading'],
-                    'look' => ['heading' => 'Looks like', 'type' => 'select', 'options' => [$asConfigured('')]],
-                    'section' => ['heading' => 'Section', 'type' => 'singleline'],
+                    'option' => ['heading' => 'Option', 'type' => 'heading', 'width' => '36%'],
+                    'blocks' => ['heading' => 'Blocks', 'type' => 'heading', 'width' => '8%'],
+                    'look' => ['heading' => 'Looks like', 'type' => 'select', 'options' => [$asConfigured('')], 'width' => '32%'],
+                    'section' => ['heading' => 'Section', 'type' => 'singleline', 'width' => '24%'],
                 ])
                 ->cellOptions($cells));
 
