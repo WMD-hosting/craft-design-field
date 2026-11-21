@@ -94,7 +94,7 @@ class SettingsController
     /**
      * The Looks tab: its style swaps, option looks and sections replace the saved ones.
      * Looks of one block only, other labels and icons, changed defaults and hidden
-     * choices, which this tab does not show, are kept as saved.
+     * choices, which this form does not hold, are kept as saved.
      *
      * @param Request $request `styles`: style => style; `looks`: option handle => `look` and `section`
      * @return Response
@@ -113,25 +113,7 @@ class SettingsController
         ]);
 
         $saved = $this->file->read();
-        $inputs = ['styles' => [], 'groups' => [], 'sections' => []] + $saved['inputs'];
-
-        foreach ($data['styles'] ?? [] as $from => $to) {
-            if (is_string($to) && $to !== '') {
-                $inputs['styles'][(string)$from] = $to;
-            }
-        }
-
-        foreach ($data['looks'] ?? [] as $handle => $row) {
-            $look = is_string($row['look'] ?? null) ? $row['look'] : '';
-            $section = is_string($row['section'] ?? null) ? trim($row['section']) : '';
-
-            if (isset(StyleChoices::LABELS[$look])) {
-                $inputs['groups'][(string)$handle] = StyleChoices::style($look);
-            }
-            if ($section !== '') {
-                $inputs['sections'][(string)$handle] = $section;
-            }
-        }
+        $inputs = SettingsScreen::looksInputs($data, $saved['inputs']);
 
         // Checked the way the site will read them: over the config file's own looks.
         try {
@@ -211,5 +193,46 @@ class SettingsController
         $this->file->write(InputOverrides::prune($inputs, $registry), $saved['presets']);
 
         return $this->asSuccess('Looks of this block saved.', redirect: SettingsScreen::url('preview', ['block' => $block]));
+    }
+
+    /**
+     * The Looks tab's labels and icons of one option: its rows replace the saved ones
+     * for that option only (`inputs.meta[<option>]`); a row left empty has none.
+     * Everything else in the file is kept.
+     *
+     * @param Request $request `option` in the URL (a group handle); `labels`: row key => `label` and `icon`
+     * @return Response
+     * @throws ValidationException
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function labels(Request $request): Response
+    {
+        $option = $this->screen->labelsOption($request->query('option'));
+        abort_if($option === null, 404, 'Unknown option.');
+
+        $rows = $request->validate(['labels' => ['nullable', 'array'], 'labels.*' => ['array']])['labels'] ?? [];
+        ['meta' => $meta, 'problems' => $problems] = SettingsScreen::labelsMeta($rows);
+
+        if ($problems !== []) {
+            throw ValidationException::withMessages(['labels' => $problems]);
+        }
+
+        $saved = $this->file->read();
+        $inputs = $saved['inputs'];
+        $inputs['meta'][$option] = $meta;
+
+        try {
+            $inputs = InputOverrides::clean($inputs);
+            $registry = $this->groups->registryWith(['inputs' => InputOverrides::merge($this->groups->fileConfig()['inputs'] ?? [], $inputs)]);
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['labels' => [$e->getMessage()]]);
+        }
+
+        // Labels for choices the option no longer has go with this save.
+        $this->file->write(InputOverrides::prune($inputs, $registry), $saved['presets']);
+
+        return $this->asSuccess('Labels and icons saved.', redirect: SettingsScreen::url('looks', ['option' => $option]));
     }
 }

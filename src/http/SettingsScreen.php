@@ -17,6 +17,8 @@ use CraftCms\Cms\Support\Url;
 use CraftCms\Cms\Field\FieldContext;
 use CraftCms\Cms\Ui\Contracts\Node;
 use CraftCms\Cms\Ui\Controls\Choice;
+use CraftCms\Cms\Ui\Controls\Control;
+use CraftCms\Cms\Ui\Controls\IconPicker;
 use CraftCms\Cms\Ui\Controls\Table as ControlTable;
 use CraftCms\Cms\Ui\Enums\ControlMode;
 use CraftCms\Cms\Ui\Nodes\Callout;
@@ -36,6 +38,7 @@ use wmd\designfield\helpers\Registry;
 use wmd\designfield\helpers\SettingsRows;
 use wmd\designfield\helpers\StyleChoices;
 use wmd\designfield\helpers\UsageReport;
+use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
 use wmd\designfield\services\Health;
@@ -84,6 +87,16 @@ class SettingsScreen
      * Inside the panel's own values, so each refresh of the panel carries the unsaved ones.
      */
     public const LOOKS = '_looks';
+
+    /**
+     * Path of the block picked under "Try these looks" on the Looks tab.
+     */
+    public const TRY = 'try';
+
+    /**
+     * What a row of the labels and icons table is keyed by, before the choice's key.
+     */
+    public const ROW = 'k_';
 
     /**
      * The periods the usage report offers, in months; 0 counts everything.
@@ -137,20 +150,30 @@ class SettingsScreen
             }
         }
 
-        // Looks and Presets are the two tabs that save, to the settings file beside the config
+        // Looks and Presets are the tabs that save, to the settings file beside the config
         // file: a site file, so only where admin changes are allowed.
         if ($tab === 'looks' || $tab === 'presets') {
-            $form = $tab === 'looks' ? $this->looksForm() : $this->presetsForm();
+            $option = $tab === 'looks' ? $this->labelsOption($request->query('option')) : null;
+            $form = match (true) {
+                $tab === 'presets' => $this->presetsForm(),
+                $option !== null => $this->labelsForm($option),
+                default => $this->looksForm(),
+            };
 
             if ($form !== null) {
                 $editable = $this->generalConfig->allowAdminChanges && $form['editable'];
                 $ui = Ui::make(array_values($form['nodes']));
-                $context = new UiContext(values: $form['values'], mode: $editable ? ControlMode::Editable : ControlMode::ReadOnly);
+                // The Looks tab asks for itself again for "Try these looks".
+                $context = new UiContext(values: $form['values'], mode: $editable ? ControlMode::Editable : ControlMode::ReadOnly, refreshable: $tab === 'looks' && $editable);
                 $props += match (true) {
-                    $editable => ['submit' => ['method' => 'post', 'url' => Url::cpUrl("design-field/settings/$tab")]],
+                    $editable => ['submit' => ['method' => 'post', 'url' => Url::cpUrl('design-field/settings/' . ($option !== null ? 'labels' : $tab), $option !== null ? ['option' => $option] : [])]],
                     !$this->generalConfig->allowAdminChanges => ['readOnly' => true],
                     default => [],
                 };
+
+                if ($tab === 'looks' && $editable) {
+                    $props['refreshUrl'] = Url::cpUrl('design-field/looks/ui', $option !== null ? ['option' => $option] : []);
+                }
             }
         }
 
@@ -206,13 +229,7 @@ class SettingsScreen
         $picked = is_array($design[self::LOOKS] ?? null) ? $design[self::LOOKS] : null;
         unset($design[self::LOOKS]);
 
-        // The panel as the field builds it, which reads the request's registry.
-        $build = function() use ($block, $design): array {
-            $field = new Design(['name' => 'Design', 'handle' => self::PANEL, 'profile' => $block]);
-            $value = $design === [] ? $field->normalizeValue([], null) : $field->normalizeValueFromRequest($design, null);
-
-            return [$value, $field->uiControl(new FieldContext(self::PANEL, $value))];
-        };
+        $build = fn(): array => $this->panel($block, $design);
 
         // With looks picked for this block the panel is built with them, saved or not.
         if ($picked !== null) {
@@ -363,13 +380,15 @@ class SettingsScreen
      * The Looks tab: one input style swapped for another on every option that has it,
      * and one row per option with its look on every block and the heading it is listed
      * under. Saved to the settings file as `inputs` (`styles`, `groups`, `sections`).
+     * "Try these looks" shows one block's panel built with the looks as the form holds them.
      *
-     * @return ?array{nodes:list<Node>,values:array<string,mixed>,editable:bool} Null when the configuration does not build
+     * @param ?array<string,mixed> $typed The form's values when it asks for itself again (`styles`, `looks`, `try`); null shows the saved looks
+     * @return ?array{nodes:list<Node>,values:array<string,mixed>,editable:bool} Null when the configuration does not build, with the typed looks or without
      *
      * @author WMD
      * @since 2.0.0
      */
-    public function looksForm(): ?array
+    public function looksForm(?array $typed = null): ?array
     {
         try {
             $registry = $this->groups->getRegistry();
@@ -378,6 +397,7 @@ class SettingsScreen
         }
 
         $saved = InputOverrides::clean($this->settingsFile->read()['inputs']);
+        $shown = $typed === null ? $saved : InputOverrides::clean(self::looksInputs($typed, $saved));
         $rows = StyleChoices::rows($registry);
         $asConfigured = static fn(string $base): array => ['label' => $base === '' ? 'As configured' : sprintf('As configured (%s)', StyleChoices::LABELS[$base] ?? $base), 'value' => ''];
 
@@ -394,14 +414,14 @@ class SettingsScreen
         $used += array_fill_keys(array_keys($saved['styles']), 0);
 
         $nodes = [
-            MarkdownContent::make('looks-intro', 'How options look to editors: icons, labelled buttons, a dropdown, a slider. What you save here is written to `config/craft/design-field.settings.json`, beside the config file, and wins over the looks set in that file: commit it with the site. The Preview tab shows the result after a save.'),
+            MarkdownContent::make('looks-intro', 'How options look to editors: icons, labelled buttons, a dropdown, a slider. What you save here is written to `config/craft/design-field.settings.json`, beside the config file, and wins over the looks set in that file: commit it with the site. **Try these looks**, at the end, shows a block with them before you save. A look for one block only is set on the Preview tab.'),
             Heading::make('looks-switch-heading', 'Quick switch')
                 ->description('Show every option of one style another way, on every block: for example Icons as Labels only, for editors who prefer words. An option that cannot take the new style keeps its own, and an option\'s own look below still wins.'),
         ];
 
         $values = ['styles' => [], 'looks' => []];
         foreach ($used as $from => $count) {
-            $values['styles'][$from] = $saved['styles'][$from] ?? '';
+            $values['styles'][$from] = $shown['styles'][$from] ?? '';
             $options = [['label' => 'Leave as it is', 'value' => '']];
             foreach (StyleChoices::LABELS as $value => $label) {
                 if ($value !== $from) {
@@ -413,18 +433,19 @@ class SettingsScreen
                 ? sprintf('%s (swapped)', StyleChoices::LABELS[$from] ?? $from)
                 : sprintf('%s (%d %s)', StyleChoices::LABELS[$from] ?? $from, $count, $count === 1 ? 'option' : 'options'))
                 ->width(25)
-                ->control(Choice::make(['styles', $from])->withoutPlaceholder()->options($options));
+                // The block under "Try these looks" follows a swap at once.
+                ->control(Choice::make(['styles', $from])->withoutPlaceholder()->options($options)->reactive());
         }
 
         $cells = [];
         foreach ($rows as $row) {
             $handle = $row['handle'];
-            $look = isset($saved['groups'][$handle]) ? StyleChoices::value($saved['groups'][$handle]) : '';
+            $look = isset($shown['groups'][$handle]) ? StyleChoices::value($shown['groups'][$handle]) : '';
             $values['looks'][$handle] = [
                 'option' => sprintf('%s (%s)', $row['label'], $handle),
                 'blocks' => (string)$row['blocks'],
                 'look' => $look,
-                'section' => $saved['sections'][$handle] ?? '',
+                'section' => $shown['sections'][$handle] ?? '',
             ];
             $cells[$handle] = ['look' => ['options' => [
                 $asConfigured($row['base']),
@@ -444,7 +465,200 @@ class SettingsScreen
                 ])
                 ->cellOptions($cells));
 
-        return ['nodes' => $nodes, 'values' => $values, 'editable' => true];
+        // Other labels and icons are edited one option at a time, on a screen of their own.
+        $labelled = array_keys($saved['meta']);
+        $nodes[] = Heading::make('looks-labels-heading', 'Labels and icons')
+            ->description('Other names and icons for an option\'s choices, on every block: Tab size as S · M · L instead of samples, with the Labels only look. Opens the option\'s choices; save the looks above first.');
+        $nodes[] = UiField::make('Option')
+            ->control(BlockPicker::make('labelsOption')->value('')->options([
+                ['value' => '', 'label' => 'Pick an option…', 'url' => self::url('looks')],
+                ...array_map(static fn(array $row) => [
+                    'value' => $row['handle'],
+                    'label' => sprintf('%s (%s)%s', $row['label'], $row['handle'], in_array($row['handle'], $labelled, true) ? ' ✎' : ''),
+                    'url' => self::url('looks', ['option' => $row['handle']]),
+                ], $rows),
+            ]));
+
+        try {
+            [$tryNodes, $tryValues] = $this->tryNodes($registry, $typed, array_keys($registry->profiles), fn(): array => InputOverrides::merge($this->groups->fileConfig()['inputs'] ?? [], $shown));
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+
+        return ['nodes' => [...$nodes, ...$tryNodes], 'values' => $values + $tryValues, 'editable' => true];
+    }
+
+    /**
+     * The three parts of `inputs` the Looks tab edits, read from its form and laid over
+     * the saved looks: the tab's save and "Try these looks" read the form the same way.
+     *
+     * @param array<string,mixed> $form `styles`: style => style; `looks`: option handle => `look` and `section`
+     * @param array<string,mixed> $saved The saved `inputs`; its other parts are kept
+     * @return array<string,mixed> Not cleaned
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public static function looksInputs(array $form, array $saved): array
+    {
+        $inputs = ['styles' => [], 'groups' => [], 'sections' => []] + $saved;
+
+        foreach (is_array($form['styles'] ?? null) ? $form['styles'] : [] as $from => $to) {
+            if (is_string($to) && $to !== '') {
+                $inputs['styles'][(string)$from] = $to;
+            }
+        }
+
+        foreach (is_array($form['looks'] ?? null) ? $form['looks'] : [] as $handle => $row) {
+            $look = is_string($row['look'] ?? null) ? $row['look'] : '';
+            $section = is_string($row['section'] ?? null) ? trim($row['section']) : '';
+
+            if (isset(StyleChoices::LABELS[$look])) {
+                $inputs['groups'][(string)$handle] = StyleChoices::style($look);
+            }
+            if ($section !== '') {
+                $inputs['sections'][(string)$handle] = $section;
+            }
+        }
+
+        return $inputs;
+    }
+
+    /**
+     * The option whose labels and icons the Looks tab shows (`?option=`).
+     *
+     * @param mixed $requested A group handle
+     * @return ?string Null for the Looks tab itself: no option asked for, or none a block has
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function labelsOption(mixed $requested): ?string
+    {
+        try {
+            return is_string($requested) && isset($this->groups->getRegistry()->baseOptions[$requested]) ? $requested : null;
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+    }
+
+    /**
+     * Labels and icons of one option's choices (`?tab=looks&option=`): one row per choice,
+     * saved to the settings file as `inputs.meta[<option>]`. An empty cell keeps what the
+     * config file says.
+     *
+     * @param string $option A group handle a block has
+     * @param ?array<string,mixed> $typed The form's values when it asks for itself again (`labels`, `try`); null shows the saved ones
+     * @return ?array{nodes:list<Node>,values:array<string,mixed>,editable:bool} Null when the configuration does not build
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function labelsForm(string $option, ?array $typed = null): ?array
+    {
+        try {
+            $registry = $this->groups->getRegistry();
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+
+        $saved = InputOverrides::clean($this->settingsFile->read()['inputs']);
+        // A save that was refused comes back with its rows as typed.
+        $typed ??= is_array(session()->getOldInput('labels')) ? ['labels' => session()->getOldInput('labels')] : null;
+        $meta = $typed === null ? ($saved['meta'][$option] ?? []) : self::labelsMeta($typed['labels'] ?? [])['meta'];
+        $label = $option;
+        $blocks = [];
+
+        foreach ($registry->profiles as $name => $groups) {
+            if (isset($groups[$option])) {
+                $label = $groups[$option]->label;
+                $blocks[] = (string)$name;
+            }
+        }
+
+        $rows = [];
+        foreach ($registry->baseOptions[$option] ?? [] as $key => $base) {
+            // Prefixed: a list of numeric keys (1, 2, 3) would lose them on its way through JSON.
+            $rows[self::ROW . $key] = [
+                'key' => (string)$key,
+                'configured' => $base['label'] . ($base['icon'] !== null && preg_match('/^[a-z0-9-]+$/', $base['icon']) ? sprintf(' (%s)', $base['icon']) : ''),
+                'label' => $meta[(string)$key]['label'] ?? '',
+                'icon' => $meta[(string)$key]['icon'] ?? null,
+            ];
+        }
+
+        $names = [];
+        foreach (StyleChoices::rows($registry) as $row) {
+            $names[$row['handle']] = sprintf('%s (%s)', $row['label'], $row['handle']);
+        }
+
+        $nodes = [
+            MarkdownContent::make('labels-intro', sprintf('Other names and icons for the choices of **%s**, on every block that has it. Only what editors read changes: saved values and templates use the keys. An empty cell keeps what the config file says. [Back to the looks](<%s>).', $label, self::url('looks'))),
+            UiField::make('Option')
+                ->control(BlockPicker::make('labelsOption')->value($option)->options(array_map(
+                    static fn(string $handle, string $name) => ['value' => $handle, 'label' => $name, 'url' => self::url('looks', ['option' => $handle])],
+                    array_keys($names),
+                    $names,
+                ))),
+            UiField::make('Labels and icons')
+                ->instructions('**Label** is the choice\'s name, up to 60 characters. **Icon** shows where the option looks like Icons or Buttons.')
+                ->control(ControlTable::make('labels')
+                    ->keyed()
+                    ->columns([
+                        'key' => ['heading' => 'Key', 'type' => 'heading', 'width' => '18%'],
+                        'configured' => ['heading' => 'In the config file', 'type' => 'heading', 'width' => '26%'],
+                        'label' => ['heading' => 'Label', 'type' => 'singleline', 'width' => '32%'],
+                        // Craft's own icons only: their names are what a choice's `icon` takes.
+                        'icon' => ['heading' => 'Icon', 'control' => IconPicker::make(['icon']), 'width' => '24%'],
+                    ])),
+        ];
+
+        try {
+            [$tryNodes, $tryValues] = $this->tryNodes($registry, $typed, $blocks, function() use ($saved, $option, $meta): array {
+                $inputs = $saved;
+                $inputs['meta'][$option] = $meta;
+
+                return InputOverrides::merge($this->groups->fileConfig()['inputs'] ?? [], array_filter($inputs));
+            });
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+
+        return ['nodes' => [...$nodes, ...$tryNodes], 'values' => ['labels' => $rows] + $tryValues, 'editable' => true];
+    }
+
+    /**
+     * The rows of the labels and icons table as `inputs.meta` takes them, and what is wrong with them.
+     *
+     * @param mixed $rows Row key (ROW and the choice's key) => `label` and `icon`
+     * @return array{meta:array<string,array{label?:string,icon?:string}>,problems:list<string>}
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public static function labelsMeta(mixed $rows): array
+    {
+        $meta = [];
+        $problems = [];
+
+        foreach (is_array($rows) ? $rows : [] as $rowKey => $row) {
+            $key = str_starts_with((string)$rowKey, self::ROW) ? substr((string)$rowKey, strlen(self::ROW)) : (string)$rowKey;
+            $label = is_scalar($row['label'] ?? null) ? trim((string)$row['label']) : '';
+            $icon = is_scalar($row['icon'] ?? null) ? trim((string)$row['icon']) : '';
+
+            // Said, not cut or dropped when the file is read after a save that reported success.
+            if (mb_strlen($label) > 60) {
+                $problems[] = sprintf('%s: a label has up to 60 characters.', $key);
+            }
+            if ($icon !== '' && !preg_match('/^[a-z0-9-]+$/', $icon)) {
+                $problems[] = sprintf('%s: "%s" is not the name of one of Craft\'s icons.', $key, $icon);
+                $icon = '';
+            }
+
+            $meta[$key] = array_filter(['label' => mb_substr($label, 0, 60), 'icon' => $icon], 'strlen');
+        }
+
+        return ['meta' => array_filter($meta), 'problems' => $problems];
     }
 
     /**
@@ -525,6 +739,58 @@ class SettingsScreen
 
     // Private Methods
     // =========================================================================
+
+    /**
+     * A block's panel as its Design field builds it, from the request's registry.
+     *
+     * @param string $block A profile name
+     * @param array<string,mixed> $design The panel's choices as its form holds them; empty for the defaults
+     * @return array{0:DesignValue,1:Control}
+     */
+    private function panel(string $block, array $design): array
+    {
+        $field = new Design(['name' => 'Design', 'handle' => self::PANEL, 'profile' => $block]);
+        $value = $design === [] ? $field->normalizeValue([], null) : $field->normalizeValueFromRequest($design, null);
+
+        return [$value, $field->uiControl(new FieldContext(self::PANEL, $value))];
+    }
+
+    /**
+     * "Try these looks": a block picker, and once a block is picked its panel built with
+     * the looks as the form holds them. Nothing is built until then.
+     *
+     * An editable table's cells cannot ask for a refresh, so the panel follows the
+     * picker (and the quick switch): pick the block again after changing a row.
+     *
+     * @param Registry $registry The request's own
+     * @param ?array<string,mixed> $typed The form's values; `try` is the block picked
+     * @param list<string> $blocks The profiles to offer
+     * @param callable():array<string,mixed> $inputs The whole `inputs` to build the panel with
+     * @return array{0:list<Node>,1:array<string,mixed>} The nodes and their values
+     * @throws InvalidArgumentException if the configuration does not build with those inputs
+     */
+    private function tryNodes(Registry $registry, ?array $typed, array $blocks, callable $inputs): array
+    {
+        $labels = array_intersect_key($this->blockLabels($registry), array_flip($blocks));
+        $try = is_string($typed[self::TRY] ?? null) && isset($labels[$typed[self::TRY]]) ? $typed[self::TRY] : '';
+        $nodes = [
+            Heading::make('looks-try-heading', 'Try these looks')
+                ->description('One block\'s panel with the looks as they stand above, before you save them. After changing a row, pick the block again to see it.'),
+            UiField::make('Block')
+                ->width(25)
+                ->control(Choice::make(self::TRY)->withoutPlaceholder()->reactive()->options([
+                    ['label' => 'No preview', 'value' => ''],
+                    ...array_map(static fn(string $name, string $label) => ['label' => $label, 'value' => $name], array_keys($labels), $labels),
+                ])),
+        ];
+
+        if ($try !== '') {
+            [, $panel] = $this->groups->withInputs($inputs(), fn(): array => $this->panel($try, []));
+            $nodes[] = UiField::make('What editors would see')->control($panel instanceof PresetBlock ? $panel->still() : $panel);
+        }
+
+        return [$nodes, [self::TRY => $try]];
+    }
 
     /**
      * "Customize this block": one dropdown per option, inside the panel.

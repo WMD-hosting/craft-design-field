@@ -8,6 +8,7 @@
 namespace wmd\designfield\http;
 
 use CraftCms\Cms\Support\File;
+use CraftCms\Cms\Ui\Ui;
 use CraftCms\Cms\Ui\UiContext;
 use CraftCms\Cms\Ui\UiResolver;
 use Illuminate\Http\JsonResponse;
@@ -16,7 +17,7 @@ use InvalidArgumentException;
 use wmd\designfield\services\Groups;
 
 /**
- * What the settings page's Preview tab asks the server for. Only saveTile() writes:
+ * What the settings page's Preview and Looks tabs ask the server for besides a save. Only saveTile() writes:
  * a picture file, never a setting or an element.
  *
  * @author WMD
@@ -77,6 +78,38 @@ class PreviewController
 
         try {
             $payload = app(UiResolver::class)->resolve($ui, new UiContext(refreshable: true))->forScope($data['scope']);
+        } catch (InvalidArgumentException $e) {
+            abort(422, $e->getMessage());
+        }
+
+        return new JsonResponse(['ui' => $payload]);
+    }
+
+    /**
+     * The Looks tab's Ui built again for the looks its form holds ("Try these looks"):
+     * the block picked there shows with them before they are saved. With `option` in the
+     * URL it is that option's labels and icons instead. Nothing is saved here.
+     *
+     * @param Request $request `values`: the form's; `scope`: empty, the whole tab
+     * @return JsonResponse
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function looksUi(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'values' => ['present', 'array'],
+            'scope' => ['present', 'array', 'max:0'],
+        ]);
+
+        $option = $this->screen->labelsOption($request->query('option'));
+        $form = $option !== null ? $this->screen->labelsForm($option, $data['values']) : $this->screen->looksForm($data['values']);
+
+        abort_if($form === null, 422, 'The configuration does not build with these looks.');
+
+        try {
+            $payload = app(UiResolver::class)->resolve(Ui::make($form['nodes']), new UiContext(values: $form['values'], refreshable: true))->forScope([]);
         } catch (InvalidArgumentException $e) {
             abort(422, $e->getMessage());
         }

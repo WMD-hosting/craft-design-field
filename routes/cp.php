@@ -14,6 +14,9 @@ Route::middleware(RequireAdmin::class)->prefix('design-field')->group(function()
     // The Preview tab's Ui, built again for the choices its panel holds
     Route::post('preview/ui', [PreviewController::class, 'ui']);
 
+    // The Looks tab's Ui, built again with the looks its form holds ("Try these looks")
+    Route::post('looks/ui', [PreviewController::class, 'looksUi']);
+
     // Make tile pictures: a layout's picture, drawn in the browser, is written under the web root.
     // The pictures are site files that belong in the repository, so admin changes must be allowed.
     Route::post('tiles/save', [PreviewController::class, 'saveTile'])->middleware(RequireAdminChanges::class);
@@ -23,6 +26,7 @@ Route::middleware(RequireAdmin::class)->prefix('design-field')->group(function()
     Route::middleware(RequireAdminChanges::class)->prefix('settings')->group(function(): void {
         Route::post('looks', [SettingsController::class, 'looks']);
         Route::post('block-looks', [SettingsController::class, 'blockLooks']);
+        Route::post('labels', [SettingsController::class, 'labels']);
         Route::post('presets', [SettingsController::class, 'presets']);
     });
 });
