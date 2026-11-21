@@ -26,8 +26,7 @@ use wmd\designfield\web\controls\Steps;
  * Design Field for Craft 6: the Design field type with its panel and its Variant
  * condition rule, the registry service and `craft.designField`.
  *
- * Not ported yet: the plugin settings page, the block preview and the starter
- * stylesheet registration.
+ * Not ported yet: the plugin settings page and the block preview.
  *
  * @author WMD
  * @since 1.0.0

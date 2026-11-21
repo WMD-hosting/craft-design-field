@@ -20,20 +20,25 @@ use CraftCms\Cms\Support\Html;
 use CraftCms\Cms\Support\Json;
 use CraftCms\Cms\Support\Query;
 use CraftCms\Cms\Ui\Contracts\Control;
+use CraftCms\Cms\Ui\Enums\ChoicePresentation;
 use CraftCms\Cms\Ui\Controls\Choice;
 use CraftCms\Cms\Ui\Controls\Textarea;
 use CraftCms\Cms\Ui\Nodes\Field as UiField;
 use CraftCms\Cms\Ui\Ui;
 use CraftCms\Cms\Ui\UiContext;
 use Closure;
+use Illuminate\Support\Facades\Event;
 use GraphQL\Type\Definition\Type;
 use Illuminate\Validation\Rule;
 use InvalidArgumentException;
 use Override;
+use wmd\designfield\events\DefinePanelGroups;
 use wmd\designfield\fields\conditions\DesignVariantConditionRule;
+use wmd\designfield\helpers\OptionOrder;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
+use wmd\designfield\services\Usage;
 use wmd\designfield\web\controls\PresetBlock;
 use wmd\designfield\web\OptionControls;
 
@@ -276,6 +281,7 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
         $element = $context->element;
         $isNew = $element === null || $element->id === null || $element->getIsUnpublishedDraft();
         $presets = OptionControls::presets($registry->presetsFor($profiles, $value->groups()), $value->groups());
+        [$groups, $hidden] = $this->panelGroups($element, $value);
 
         // A preset sets several options at once; the panel then refreshes once, so options
         // that wait for another one (showIf) follow, as after a pick of a single option.
@@ -284,8 +290,63 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
             ->clearable(false)
             ->presets($presets)
             ->reactive($presets !== [])
-            ->ui(OptionControls::panel($value, $mode, $isNew, $this->optionLayout))
+            ->ui(OptionControls::panel($value, $mode, $isNew, $this->optionLayout, $groups, $hidden, $this->usageFor($groups, $element)))
             ->value([]);
+    }
+
+    /**
+     * The panel's options after DefinePanelGroups: listeners may replace a group (to hide or
+     * relabel choices for this element) or name options to leave out. Handles are fixed:
+     * what a listener adds or removes is ignored.
+     *
+     * @param ?ElementInterface $element
+     * @param DesignValue $value
+     * @return array{0:array<string,Group>,1:list<string>} The options, and the handles left out of the panel
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function panelGroups(?ElementInterface $element, DesignValue $value): array
+    {
+        $groups = $value->groups();
+
+        if (!Event::hasListeners(DefinePanelGroups::class)) {
+            return [$groups, []];
+        }
+
+        $event = new DefinePanelGroups($element, $groups, $value->keys());
+        Event::dispatch($event);
+
+        foreach ($groups as $handle => $group) {
+            if (($event->groups[$handle] ?? null) instanceof Group) {
+                $groups[$handle] = $event->groups[$handle];
+            }
+        }
+
+        return [$groups, array_values(array_intersect(array_map('strval', array_keys($groups)), $event->hiddenGroups))];
+    }
+
+    /**
+     * Pick counts for "Most used" in long dropdowns; only read when the panel has one.
+     *
+     * @param array<string,Group> $groups
+     * @param ?ElementInterface $element
+     * @return array<string,array<string,int>> Option handle => key => count
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function usageFor(array $groups, ?ElementInterface $element): array
+    {
+        foreach ($groups as $group) {
+            if (count($group->options) >= OptionOrder::LONG && OptionControls::presentation($group) === ChoicePresentation::Select) {
+                $type = $element !== null && method_exists($element, 'getType') ? rescue(static fn() => $element->getType()->handle, null, false) : null;
+
+                return OptionOrder::countsFor(app(Usage::class)->counts(), $type);
+            }
+        }
+
+        return [];
     }
 
     #[Override]

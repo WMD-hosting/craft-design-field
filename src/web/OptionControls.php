@@ -20,6 +20,7 @@ use CraftCms\Cms\Ui\Nodes\MarkdownContent;
 use CraftCms\Cms\Ui\Ui;
 use wmd\designfield\fields\Design;
 use wmd\designfield\helpers\Motion;
+use wmd\designfield\helpers\OptionOrder;
 use wmd\designfield\helpers\Positions;
 use wmd\designfield\helpers\Sections;
 use wmd\designfield\models\DesignValue;
@@ -63,14 +64,17 @@ class OptionControls
      * @param string $mode One of the Design::VIEW_* constants
      * @param bool $open Start with the options shown (a new element)
      * @param string $layout One of the Design::LAYOUT_* constants
+     * @param ?array<string,Group> $groups The options as this panel shows them (a site may trim them per element); null for the value's own
+     * @param string[] $hidden Options left out of this panel; each stays in the form, hidden, so its value is kept
+     * @param array<string,array<string,int>> $usage Pick counts per option, for "Most used" in long dropdowns
      * @return Ui
      *
      * @author WMD
      * @since 2.0.0
      */
-    public static function panel(DesignValue $value, string $mode = Design::VIEW_PANEL, bool $open = false, string $layout = Design::LAYOUT_SECTIONS): Ui
+    public static function panel(DesignValue $value, string $mode = Design::VIEW_PANEL, bool $open = false, string $layout = Design::LAYOUT_SECTIONS, ?array $groups = null, array $hidden = [], array $usage = []): Ui
     {
-        $nodes = self::nodes($value->groups(), $value->keys(), $layout);
+        $nodes = self::nodes($groups ?? $value->groups(), $value->keys(), $layout, $hidden, $usage);
 
         if ($mode !== Design::VIEW_SUMMARY && $mode !== Design::VIEW_COLLAPSED) {
             return Ui::make($nodes);
@@ -192,18 +196,20 @@ class OptionControls
      * @param array<string,Group> $groups The block's options, in panel order
      * @param array<string,string> $keys Option handle => current choice
      * @param string $layout One of the Design::LAYOUT_* constants
+     * @param string[] $hidden Options left out of the panel (kept in the form, hidden)
+     * @param array<string,array<string,int>> $usage Pick counts per option, for "Most used"
      * @return list<Node>
      *
      * @author WMD
      * @since 2.0.0
      */
-    public static function nodes(array $groups, array $keys, string $layout = Design::LAYOUT_SECTIONS): array
+    public static function nodes(array $groups, array $keys, string $layout = Design::LAYOUT_SECTIONS, array $hidden = [], array $usage = []): array
     {
         $nodes = [];
 
         foreach (Sections::arrange($groups, $layout !== Design::LAYOUT_INLINE) as $index => $section) {
             $fields = array_map(
-                static fn(string $handle) => self::field($groups[$handle], $keys[$handle] ?? $groups[$handle]->default, $keys),
+                static fn(string $handle) => self::field($groups[$handle], $keys[$handle] ?? $groups[$handle]->default, $keys, in_array($handle, $hidden, true), $usage[$handle] ?? []),
                 $section['groups'],
             );
 
@@ -232,16 +238,18 @@ class OptionControls
      * @param Group $group
      * @param string $selected The current choice
      * @param array<string,string> $keys Every option's current choice
+     * @param bool $hidden Left out of this panel: still in the form, so its value is kept
+     * @param array<string,int> $counts How many blocks picked each key, for "Most used"
      * @return Field
      *
      * @author WMD
      * @since 2.0.0
      */
-    public static function field(Group $group, string $selected, array $keys): Field
+    public static function field(Group $group, string $selected, array $keys, bool $hidden = false, array $counts = []): Field
     {
-        return Field::make($group->label, self::control($group, $selected))
+        return Field::make($group->label, self::control($group, $selected, $counts))
             ->instructions($group->instructions !== '' ? $group->instructions : null)
-            ->visible($group->appliesTo($keys));
+            ->visible(!$hidden && $group->appliesTo($keys));
     }
 
     /**
@@ -249,12 +257,13 @@ class OptionControls
      *
      * @param Group $group
      * @param string $selected The current choice
+     * @param array<string,int> $counts How many blocks picked each key, for "Most used" in a long dropdown
      * @return Control
      *
      * @author WMD
      * @since 2.0.0
      */
-    public static function control(Group $group, string $selected): Control
+    public static function control(Group $group, string $selected, array $counts = []): Control
     {
         if (self::isSwitch($group)) {
             [$off, $on] = array_map('strval', array_keys($group->options));
@@ -296,8 +305,8 @@ class OptionControls
             }
         }
 
-        $options = self::options($group, $selected);
         $presentation = self::presentation($group);
+        $options = self::options($group, $selected, $presentation === ChoicePresentation::Select ? $counts : []);
 
         // Buttons that only draw (colour chips, icons without names) never show which one is
         // chosen: as the grid control, the chosen one's name is read out beside them.
@@ -353,12 +362,13 @@ class OptionControls
      *
      * @param Group $group
      * @param string $selected The current choice
+     * @param array<string,int> $counts How many blocks picked each key; a list of ten or more then starts with the three most picked under "Most used"
      * @return list<array<string,mixed>>
      *
      * @author WMD
      * @since 2.0.0
      */
-    public static function options(Group $group, string $selected): array
+    public static function options(Group $group, string $selected, array $counts = []): array
     {
         $options = [];
 
@@ -396,7 +406,19 @@ class OptionControls
             $options[] = $choice;
         }
 
-        return $options;
+        // A long dropdown lists the choices editors pick most first, under their own heading.
+        $split = OptionOrder::split(array_map(static fn(array $choice) => (string)$choice['value'], $options), $counts);
+
+        if ($split['top'] === []) {
+            return $options;
+        }
+
+        $byKey = array_column($options, null, 'value');
+
+        return [
+            ...array_map(static fn(string $key) => $byKey[$key] + ['group' => 'Most used'], $split['top']),
+            ...array_map(static fn(string $key) => $byKey[$key] + ['group' => 'All choices'], $split['rest']),
+        ];
     }
 
     /**

@@ -7,6 +7,8 @@
 
 namespace wmd\designfield\services;
 
+use Illuminate\Support\Facades\Cache;
+use wmd\designfield\jobs\CountUsage;
 use CraftCms\Cms\Entry\Elements\Entry;
 use CraftCms\Cms\Entry\EntryTypes;
 use DateTimeInterface;
@@ -25,6 +27,11 @@ use wmd\designfield\models\DesignValue;
  */
 class Usage
 {
+    /**
+     * Cache key of the pick counts behind "Most used".
+     */
+    public const COUNTS_KEY = 'design-field:usage-counts';
+
     public function __construct(
         private readonly EntryTypes $entryTypes,
     ) {
@@ -32,6 +39,54 @@ class Usage
 
     // Public Methods
     // =========================================================================
+
+    /**
+     * How many blocks picked each choice, by entry type, option and key, for "Most used"
+     * in long dropdowns. Kept for a day; while there is nothing kept this returns nothing
+     * and a queue job counts in the background (reading every entry is too slow for a page load).
+     *
+     * @return array<string,array<string,array<string,int>>> Entry type => option => key => count
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function counts(): array
+    {
+        $counts = Cache::get(self::COUNTS_KEY);
+
+        if (is_array($counts)) {
+            return $counts;
+        }
+
+        // One job at a time, even when many editors open pages at once.
+        if (Cache::add(self::COUNTS_KEY . ':queued', true, 600)) {
+            CountUsage::dispatch();
+        }
+
+        return [];
+    }
+
+    /**
+     * Keeps a report's counts for counts().
+     *
+     * @param array<string,array{entries:int,groups:array<string,array<string,mixed>>}> $report report() for every type
+     * @return void
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function storeCounts(array $report): void
+    {
+        $counts = [];
+
+        foreach ($report as $type => $data) {
+            foreach ($data['groups'] as $handle => $group) {
+                $counts[(string)$type][(string)$handle] = array_map('intval', (array)($group['counts'] ?? []));
+            }
+        }
+
+        Cache::put(self::COUNTS_KEY, $counts, 86400);
+    }
 
     /**
      * @param string[] $types Only these entry type handles; empty means every type with a Design field
