@@ -1,6 +1,6 @@
 # Release Notes for Design Field
 
-## 2.0.0-beta.1 - Unreleased
+## 2.0.0-beta.1 - 2026-11-21
 
 > {warning} Design Field 2 is for Craft CMS 6 and is a beta, as Craft 6 is. The parts of 1.x it does not have yet are listed under Removed. Craft 5 sites stay on 1.x.
 
