@@ -102,6 +102,40 @@ class InputOverrides
     }
 
     /**
+     * Lays one set of input styles over another: the config file's `inputs`, then what
+     * the settings page saved, which wins entry by entry.
+     *
+     * @param mixed $base
+     * @param mixed $over
+     * @return array<string,array<string,mixed>> The shape of clean()
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public static function merge(mixed $base, mixed $over): array
+    {
+        $base = self::clean($base);
+        $over = self::clean($over);
+        $merged = [];
+
+        foreach ($base as $part => $entries) {
+            // One level: a style swap, an option's look, an option's section.
+            if (in_array($part, ['styles', 'groups', 'sections'], true)) {
+                $merged[$part] = array_replace($entries, $over[$part]);
+                continue;
+            }
+
+            // Two levels (block or option, then option or key): the inner entry is replaced whole.
+            $merged[$part] = $entries;
+            foreach ($over[$part] as $outer => $inner) {
+                $merged[$part][$outer] = array_replace($merged[$part][$outer] ?? [], $inner);
+            }
+        }
+
+        return $merged;
+    }
+
+    /**
      * Drops entries that point at nothing (a removed block or group) and per-block
      * styles the group cannot take. An everywhere style that some groups cannot take
      * stays: it is skipped for those groups only.
