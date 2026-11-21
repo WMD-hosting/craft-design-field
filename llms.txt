@@ -1,4 +1,4 @@
-# Design Field - llms.txt
+# Design Field 2 (Craft CMS 6) - llms.txt
 
 Flat reference. Full prose is in README.md. Field type: wmd\designfield\fields\Design. Twig variable: craft.designField.
 
@@ -20,11 +20,11 @@ DesignValue.classes(...groups): string - joined classes; no args = every profile
 DesignValue.keys(): array<string,string>
 Token.key, Token.label, Token.isDefault, Token.isAuto(): bool, Token.keyOr(fallback): string, Token.classOr(fallback): string, Token.get(part): string, (string)Token = all parts joined
 
-## Config (config/design-field.php or Settings > Plugins > Design Field)
+## Config (config/craft/design-field.php; token files in config/designtokens/)
 fieldMap: old field handle => group handle
 groups.<handle>: label, instructions, tokens | options, default, auto, aliases, input (buttons|select|swatches|tiles|position|slider|toggle; toggle needs exactly two options, off first), iconsOnly, columns, showIf {group: [keys]} | variants [keys], optionMeta {key: {label, icon, swatch, swatchText, percent, image, description, sample}}
-presets.<profile|*>.<label>: {group: key, ...} - one-click sets of choices above a block's options; profile presets first, then `*`; only groups the block has are applied; nothing extra is stored; CP table presetRows (profile, name, choices `group=key, group=key`; older one-choice rows still read) unless the config file sets presets
-settings page: usage report on request (?usage=1, helpers/UsageReport::summarize shared with the console), configuration check (services/Health::check) and a live preview of any profile's panel (?preview=<profile>; inputs carry form="df-preview" so they are never saved)
+presets.<profile|*>.<label>: {group: key, ...} - one-click sets of choices above a block's options; profile presets first, then `*`; only groups the block has are applied; nothing extra is stored
+no settings page in 2.x: the config file is the whole configuration
 option: key => "classes" | {label, icon (Craft icon name or inline SVG), swatch (CSS colour/gradient; "a|b" splits the chip), swatchText (text colour, drawn as "Aa" on the swatch), percent (width bar: 75, 75%, 0.75), image, description, sample (CSS font-size for an "Aa" button), <part>: "classes"}
 position: cells `columns` to a row; keys naming a set lay themselves out (top-left..bottom-right nine-point grid, four corners, left/center/right row, top/middle/bottom column)
 slider: Craft range control; the editor posts {"__slider": {handle: place}}, stored as the option key
@@ -34,8 +34,9 @@ profileOverrides.<profile>.<group>: settings for one profile only
 profile matching: field setting > "<matrixField>:<type>" > "<type>" > "*" > every group
 
 ## Console
-craft design-field/import [--exclude=a,b] [--rename=field:group] [--types=a,b] [--templates=pattern] [--images=pattern] [--enrich] [--force] [--write]
-craft design-field/adopt (--types=a,b | --all) [--field=design] [--apply]
-craft design-field/migrate --type=<handle> [--to-type=<handle>] [--map=field:group,...] [--entries=1,2] [--drafts] [--overwrite] [--detail] [--apply]
-craft design-field/usage [--types=a,b] [--all] [--min=N] [--sample=N] [--json] - which choices editors use: never-changed, one-value, used; unused options
-import/adopt/migrate are dry runs unless --write / --apply.
+php artisan design-field:check [--json] - configuration check and template check; exit 1 when there is something to fix
+php artisan design-field:schema [--markdown] [--agents=FILE [--check]] - the option model as JSON or markdown; --agents writes it between <!-- design-field:start/end --> markers
+php artisan design-field:usage [--types=a,b] [--all] [--min=N] [--sample=N] [--months=N] [--json] - which choices editors use: never-changed, one-value, used; unused options
+
+## Not in 2.x (1.x only)
+settings page, block preview, Make tile pictures, Most used in long dropdowns, Design::EVENT_DEFINE_PANEL_GROUPS, import/adopt/migrate; craft.designField.starterCss() is a no-op

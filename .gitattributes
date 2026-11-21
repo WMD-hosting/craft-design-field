@@ -1,5 +1,7 @@
 /tests export-ignore
-/ecs.php export-ignore
-/phpstan.neon export-ignore
 /phpunit.xml export-ignore
 /resources export-ignore
+/.github export-ignore
+/package.json export-ignore
+/package-lock.json export-ignore
+/vite.config.js export-ignore
