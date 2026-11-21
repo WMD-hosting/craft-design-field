@@ -275,7 +275,8 @@ class SettingsScreen
 
             foreach ($data['findings'] as $finding) {
                 if ($finding['verdict'] === UsageReport::ONE_VALUE) {
-                    $same[] = sprintf('%s: %s', $finding['label'], $label($finding['handle'], $finding['value']));
+                    $same[] = sprintf('%s: %s', $finding['label'], $label($finding['handle'], $finding['value']))
+                        . ($finding['unused'] === [] ? '' : sprintf(' (never picked: %s)', implode(', ', array_map(static fn(string $key) => $label($finding['handle'], $key), $finding['unused']))));
                 } elseif ($finding['unused'] !== []) {
                     // A layout list: which layouts nobody picked matters more than the default.
                     $never[] = sprintf('%s: %s (never picked: %s)', $finding['label'], $label($finding['handle'], $finding['default']), implode(', ', array_map(static fn(string $key) => $label($finding['handle'], $key), $finding['unused'])));
