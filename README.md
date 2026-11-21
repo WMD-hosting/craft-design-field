@@ -228,6 +228,8 @@ The **Looks** and **Presets** tabs, and **Customize this block** on the Preview 
 
 ![The settings page: looks](resources/screenshots/settings-looks.png)
 
+![The settings page: a look for one block only](resources/screenshots/settings-block-looks.png)
+
 ![The settings page: presets set in the config file show read only](resources/screenshots/settings-presets.png)
 
 ![The settings page: a block's panel and the block beside it](resources/screenshots/settings-preview.png)
