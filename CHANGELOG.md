@@ -1,6 +1,6 @@
 # Release Notes for Design Field
 
-## Unreleased
+## 2.0.0-beta.3 - 2026-11-21
 
 ### Added
 - The settings page is back (Settings → Plugins → Design Field, admins only), with two tabs that only read, so it also opens where admin changes are off. **Configuration** shows what `design-field:check` prints: the configuration check and the template check. **Usage** shows the usage report, one row per block, for all time or the last 12, 6 or 3 months; a run over all time also refreshes the "Most used" counts. A Design field's settings link to the page.
