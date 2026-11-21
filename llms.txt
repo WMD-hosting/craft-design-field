@@ -24,7 +24,7 @@ Token.key, Token.label, Token.isDefault, Token.isAuto(): bool, Token.keyOr(fallb
 fieldMap: old field handle => group handle
 groups.<handle>: label, instructions, tokens | options, default, auto, aliases, input (buttons|select|swatches|tiles|position|slider|toggle; toggle needs exactly two options, off first), iconsOnly, columns, showIf {group: [keys]} | variants [keys], optionMeta {key: {label, icon, swatch, swatchText, percent, image, description, sample}}
 presets.<profile|*>.<label>: {group: key, ...} - one-click sets of choices above a block's options; profile presets first, then `*`; only groups the block has are applied; nothing extra is stored
-groups, options and profiles are only in the config file; the settings page (below) saves looks and presets to config/craft/design-field.settings.json ({"inputs": {styles, groups, sections, ...}, "presets": {...}}), which is laid over the config file: its inputs win entry by entry, its presets apply unless the config file has a `presets` key. Commit that file with the site
+groups, options and profiles are only in the config file; the settings page (below) saves looks and presets to config/craft/design-field.settings.json ({"inputs": {styles, groups, sections, profiles, meta}, "presets": {...}}), which is laid over the config file: its inputs win entry by entry, its presets apply unless the config file has a `presets` key. Commit that file with the site
 option: key => "classes" | {label, icon (Craft icon name or inline SVG), swatch (CSS colour/gradient; "a|b" splits the chip), swatchText (text colour, drawn as "Aa" on the swatch), percent (width bar: 75, 75%, 0.75), image, description, sample (CSS font-size for an "Aa" button), <part>: "classes"}
 position: cells `columns` to a row; keys naming a set lay themselves out (top-left..bottom-right nine-point grid, four corners, left/center/right row, top/middle/bottom column)
 slider: Craft range control; the editor posts {"__slider": {handle: place}}, stored as the option key
@@ -43,13 +43,15 @@ php artisan design-field:usage [--types=a,b] [--all] [--min=N] [--sample=N] [--m
 ## Settings page (control panel: settings/plugins/design-field, admins only; opens read only with admin changes off; writes only site files and only where admin changes are allowed)
 ?tab=configuration (default) - the findings of design-field:check: configuration check and template check
 ?tab=looks - quick switch (inputs.styles: every option of one style shown as another) and one row per option (inputs.groups: its look on every block; inputs.sections: its panel heading); POST design-field/settings/looks
+?tab=looks&option=<group> - labels and icons of that option's choices: one row per choice (row key k_<key>: label up to 60 characters, icon = a Craft icon name), '' keeps the config file's; POST design-field/settings/labels?option=<group> replaces inputs.meta[<group>] only
+Try these looks (on ?tab=looks and ?tab=looks&option=) - pick a block (form value `try`) and its panel is built with the form's unsaved looks: POST design-field/looks/ui {values, scope: []}, read only; follows the quick switch, a changed table row after the block is picked again
 ?tab=presets - one row per preset: block or *, name, choices as `group=key, group=key`; POST design-field/settings/presets; refused when a choice names a group or key no block has; read only when the config file has `presets`
 ?tab=preview&block=<profile> - the real Design panel of that block (defaults, presets), its choices never saved; the panel ends with "Customize this block": one dropdown per option (panel value design._looks.<group>: a look, '' = as on every block), the panel is rebuilt with the picked looks before they are saved (POST design-field/preview/ui), Save posts to design-field/settings/block-looks?block=<profile> and replaces inputs.profiles[<profile>] only (admin changes allowed; a look the option cannot take there is refused); unknown or no block shows the one with the most options; with blockPreviewUrl the block itself in a frame beside it (desktop 1280 / tablet 768 / mobile 375), reloaded on each change
 Make tile pictures (button on ?tab=preview; block with a `variant` group, blockPreviewUrl and tileImages set, admin changes allowed) - draws each layout without a picture from blockPreviewUrl with design={"variant": key} to a 480 px JPEG in the browser and posts it to design-field/tiles/save, which writes tileImages ({type}/{key}.jpg under the web root)
 ?tab=usage - nothing is counted until &run=1; &months=12|6|3 limits it to entries saved in that period; one row per block (never changed, always the same choice); a run without months refreshes the "Most used" counts
 
 ## Not in 2.x (1.x only)
-settings page: tables for groups/options/profiles, other labels and icons, Tidy up; import/adopt/migrate
+settings page: tables for groups/options/profiles, Tidy up; import/adopt/migrate
 
 ## Events
 wmd\designfield\events\DefinePanelGroups (Laravel event; Craft 5: Design::EVENT_DEFINE_PANEL_GROUPS): element, groups (replace a Group, e.g. ->withHidden([keys])), keys (read only), hiddenGroups[] (leave an option out of the panel; value kept)

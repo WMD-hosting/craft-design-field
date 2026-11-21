@@ -131,8 +131,7 @@ Decided by wmd on 21.11.2026: the page writes a file beside the config file.
 
 ## Stage 5: The rest of the Looks tab
 
-The three parts stage 4 left out. Two pull requests: the look of one block with its preview, then
-labels and icons with the preview of the Looks tab.
+The three parts stage 4 left out, in one pull request.
 
 | | |
 |---|---|
@@ -151,10 +150,12 @@ labels and icons with the preview of the Looks tab.
 - **Labels and icons:** the Looks tab gets an option picker; `?tab=looks&option=<group>` shows that
   option's choices as an editable table (key, label, icon from Craft's icon picker). An empty cell keeps
   what the config file says. A save replaces `inputs.meta[<group>]` and keeps everything else.
-- **Try these looks:** the Looks tab can show one block's panel built with the looks as they stand in
-  the form, not as saved. An editable table's cells cannot ask for a refresh (Craft nests its rows as
-  not refreshable), so the panel follows the quick switch and the block picked for it, and is asked
-  for again by picking the block.
+- **Try these looks:** the Looks tab, and an option's labels and icons, can show one block's panel
+  built with the looks as they stand in the form, not as saved (`POST design-field/looks/ui`). An
+  editable table's cells cannot ask for a refresh (Craft nests its rows as not refreshable), so the
+  panel follows the quick switch and the block picked for it, and is asked for again by picking the
+  block. That panel never asks for itself again (`PresetBlock::still()`): a refresh of the panel
+  alone would not carry the form's looks.
 - Each save keeps the parts of the settings file it does not edit; the Looks tab's own save keeps
   `profiles` and `meta`.
 - **Tests:** `BlockLooksTest` and `LabelsIconsTest` beside `LooksPresetsTest`: the Preview tab offers
