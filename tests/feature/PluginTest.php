@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Validator;
 use wmd\designfield\fields\Design;
 use wmd\designfield\models\DesignValue;
+use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
 use wmd\designfield\variables\DesignFieldVariable;
 use wmd\designfield\web\OptionControls;
@@ -163,6 +164,25 @@ final class PluginTest extends PluginTestCase
         $side = OptionControls::panel($value, layout: Design::LAYOUT_SIDE)->nodes();
         self::assertSame(50, $side[2]->props()['width']);
         self::assertArrayNotHasKey('width', OptionControls::panel($value)->nodes()[2]->props());
+    }
+
+    public function testSideBySideTheSectionWithLayoutPicturesTakesTheWholeRow(): void
+    {
+        $groups = [
+            'variant' => Group::fromConfig('variant', ['label' => 'Layout', 'input' => 'tiles', 'section' => 'Layout'], ['_default' => ['value' => 'a', 'image' => '/design-field/blockHero/_default.jpg'], 'wide' => 'b']),
+            'container' => Group::fromConfig('container', ['label' => 'Container', 'section' => 'Layout'], ['boxed' => 'x', 'wide' => 'y']),
+            'tone' => Group::fromConfig('tone', ['label' => 'Tone', 'section' => 'Colour'], ['light' => 'l', 'dark' => 'd']),
+        ];
+        $keys = ['variant' => '_default', 'container' => 'boxed', 'tone' => 'light'];
+        self::assertSame(Group::INPUT_TILES, $groups['variant']->input);
+
+        $side = OptionControls::nodes($groups, $keys, Design::LAYOUT_SIDE);
+        self::assertSame(['Layout', 'Colour'], array_map(static fn($node) => $node->props()['label'], $side));
+        self::assertArrayNotHasKey('width', $side[0]->props(), 'the pictures fill the row');
+        self::assertSame(50, $side[1]->props()['width']);
+
+        // Left out of this panel (DefinePanelGroups), the pictures no longer widen their section.
+        self::assertSame(50, OptionControls::nodes($groups, $keys, Design::LAYOUT_SIDE, ['variant'])[0]->props()['width']);
     }
 
     public function testTheFieldSettingsOfferViewLayoutAndProfile(): void

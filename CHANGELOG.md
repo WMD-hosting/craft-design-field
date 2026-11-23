@@ -1,5 +1,10 @@
 # Release Notes for Design Field
 
+## Unreleased
+
+### Changed
+- With sections side by side (the field's option layout), the section that shows layout pictures takes the whole row, and the other sections pair up below it. In a wide slideout, half the row held four pictures and left the other half empty; at about 1,450px a row now holds eight, in an 800px panel four instead of two. Where Craft stacks the sections anyway (a narrow panel, a phone) nothing changes.
+
 ## 2.0.0-beta.4 - 2026-11-21
 
 ### Added

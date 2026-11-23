@@ -191,7 +191,9 @@ class OptionControls
 
     /**
      * The options as nodes: a group per section, or one list (inline). Side by side,
-     * a section takes half the row.
+     * a section takes half the row, except one that shows layout pictures: it takes the
+     * whole row, so the pictures fill the width they are given (in a wide slideout half
+     * the row held four of them and left the other half empty).
      *
      * @param array<string,Group> $groups The block's options, in panel order
      * @param array<string,string> $keys Option handle => current choice
@@ -221,10 +223,11 @@ class OptionControls
             // A section whose options all wait for another choice has nothing to show:
             // without this its heading would stand over an empty area.
             $shown = array_filter($fields, static fn(Field $field) => $field->isVisible());
+            $pictures = array_filter(array_keys($shown), static fn(int $i) => $groups[$section['groups'][$i]]->input === Group::INPUT_TILES);
 
             $nodes[] = GroupNode::make("design-section-$index", $fields)
                 ->label($section['label'])
-                ->width($layout === Design::LAYOUT_SIDE ? FieldWidth::Half : null)
+                ->width($layout === Design::LAYOUT_SIDE && $pictures === [] ? FieldWidth::Half : null)
                 ->visible($shown !== []);
         }
 
