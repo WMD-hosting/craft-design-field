@@ -23,6 +23,7 @@ use wmd\designfield\helpers\Motion;
 use wmd\designfield\helpers\OptionOrder;
 use wmd\designfield\helpers\Positions;
 use wmd\designfield\helpers\Sections;
+use wmd\designfield\helpers\SideColumns;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
@@ -190,10 +191,15 @@ class OptionControls
     }
 
     /**
-     * The options as nodes: a group per section, or one list (inline). Side by side,
-     * a section takes half the row, except one that shows layout pictures: it takes the
-     * whole row, so the pictures fill the width they are given (in a wide slideout half
-     * the row held four of them and left the other half empty).
+     * The options as nodes: a group per section, or one list (inline).
+     *
+     * Side by side, the sections stand in two columns of about the same height, in
+     * reading order: the left column holds the first sections, the right one the rest,
+     * so a narrow panel, where Craft stacks the columns, lists them in the same order.
+     * (Half-width sections paired row by row left a hole beside every short one.)
+     * Options without a section join the columns as a group without a heading. A section
+     * that shows layout pictures takes the whole row, so the pictures fill the width they
+     * are given, and so does a section with nothing to stand beside.
      *
      * @param array<string,Group> $groups The block's options, in panel order
      * @param array<string,string> $keys Option handle => current choice
@@ -207,7 +213,25 @@ class OptionControls
      */
     public static function nodes(array $groups, array $keys, string $layout = Design::LAYOUT_SECTIONS, array $hidden = [], array $usage = []): array
     {
+        $side = $layout === Design::LAYOUT_SIDE;
         $nodes = [];
+        /** @var list<array{node:GroupNode,weight:int}> $flow Sections waiting to be dealt into columns */
+        $flow = [];
+        $rows = 0;
+
+        $columns = static function () use (&$nodes, &$flow, &$rows): void {
+            $left = SideColumns::split(array_column($flow, 'weight'));
+
+            if ($left === null) {
+                array_push($nodes, ...array_column($flow, 'node'));
+            } else {
+                foreach ([array_slice($flow, 0, $left), array_slice($flow, $left)] as $column => $sections) {
+                    $nodes[] = GroupNode::make("design-column-$rows-$column", array_column($sections, 'node'))->width(FieldWidth::Half);
+                }
+                $rows++;
+            }
+            $flow = [];
+        };
 
         foreach (Sections::arrange($groups, $layout !== Design::LAYOUT_INLINE) as $index => $section) {
             $fields = array_map(
@@ -215,7 +239,7 @@ class OptionControls
                 $section['groups'],
             );
 
-            if ($section['label'] === '') {
+            if ($section['label'] === '' && !$side) {
                 array_push($nodes, ...$fields);
                 continue;
             }
@@ -223,13 +247,23 @@ class OptionControls
             // A section whose options all wait for another choice has nothing to show:
             // without this its heading would stand over an empty area.
             $shown = array_filter($fields, static fn(Field $field) => $field->isVisible());
-            $pictures = array_filter(array_keys($shown), static fn(int $i) => $groups[$section['groups'][$i]]->input === Group::INPUT_TILES);
+            $inputs = array_map(static fn(int $i) => $groups[$section['groups'][$i]]->input, array_keys($shown));
 
-            $nodes[] = GroupNode::make("design-section-$index", $fields)
-                ->label($section['label'])
-                ->width($layout === Design::LAYOUT_SIDE && $pictures === [] ? FieldWidth::Half : null)
-                ->visible($shown !== []);
+            $node = GroupNode::make("design-section-$index", $fields)->visible($shown !== []);
+            if ($section['label'] !== '') {
+                $node->label($section['label']);
+            }
+
+            if (!$side) {
+                $nodes[] = $node;
+            } elseif (in_array(Group::INPUT_TILES, $inputs, true)) {
+                $columns();
+                $nodes[] = $node;
+            } else {
+                $flow[] = ['node' => $node, 'weight' => SideColumns::weight($inputs, $section['label'] !== '')];
+            }
         }
+        $columns();
 
         return $nodes;
     }

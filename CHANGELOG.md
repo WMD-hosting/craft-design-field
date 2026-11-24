@@ -1,5 +1,11 @@
 # Release Notes for Design Field
 
+## Unreleased
+
+### Changed
+- With sections side by side (the field's option layout), the sections below the layout pictures stand in two columns of about the same height, in reading order: the left column holds the first sections, the right one the rest. Paired row by row, a short section left a hole beside a long one (a list of twelve switches beside one dropdown), and the next pair started below the longer of the two. A narrow panel, where Craft stacks the columns, lists the sections in the same order as before.
+- Side by side, options without a section stand in the columns as a group without a heading, instead of full-width rows between the sections. A section with nothing to stand beside keeps the whole row.
+
 ## 2.0.0-beta.5 - 2026-11-23
 
 ### Changed
