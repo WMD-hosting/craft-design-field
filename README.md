@@ -8,9 +8,9 @@ One field for every design option of a block. Tone, spacing, layout, columns, al
 - One reader, `craft.designField.of(block)`, works for the Design field, for the old option fields it replaces, and for showcase mock data.
 - Coding agents read and write the field through Craft's own MCP server, with every option and its choices in the schema.
 
-![The Design panel on Craft 6: presets, layout pictures and colour swatches, in sections](resources/screenshots/panel.png)
+![The Design panel on Craft 6: presets, then the Layout section with a picture of each layout across the whole row](resources/screenshots/panel.png)
 
-![Further down the same panel: icon buttons, a slider with named stops and motion cards](resources/screenshots/panel-options.png)
+![Further down the same panel: icon buttons, then colour swatches and a slider with named stops side by side, and motion cards](resources/screenshots/panel-options.png)
 
 ## Which version
 
@@ -180,7 +180,7 @@ The map applies to every option with the handle, including a block's own lists; 
 Field settings:
 
 - **View Mode**: **As a panel** (every option open, the default), **As a summary** (one line of what differs from the defaults, with **Edit** to open the panel) or **Collapsed** (a closed section with the number of changes). A summary or collapsed panel starts open on a new element. One profile can use another mode than the field with `'_view' => 'panel'` in its config.
-- **Option Layout**: **In sections** (the default), **Sections side by side** or **Inline**.
+- **Option Layout**: **In sections** (the default), **Sections side by side** or **Inline**. Side by side, the section with the layout pictures takes the whole row and the other sections pair up below it; in a narrow panel or on a phone, Craft stacks them all.
 - **Profile**: the element's own (its type), or one named profile for every element that has the field.
 
 ### Presets
