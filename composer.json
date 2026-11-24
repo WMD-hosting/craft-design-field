@@ -59,6 +59,21 @@
         "sort-packages": true,
         "allow-plugins": {
             "craftcms/plugin-installer": true
+        },
+        "policy": {
+            "advisories": {
+                "ignore-id": {
+                    "PKSA-tfq6-ydd8-dhbf": {"reason": "Twig < 3.31.1; craftcms/cms 6.0.0-beta.2 pins twig/twig ~3.30.0. Not blocked, still audited; remove once craftcms/cms allows twig/twig >=3.31.1", "on-audit": false},
+                    "PKSA-v6ry-d7gg-9dnc": {"reason": "Twig < 3.31.1; craftcms/cms 6.0.0-beta.2 pins twig/twig ~3.30.0. Not blocked, still audited; remove once craftcms/cms allows twig/twig >=3.31.1", "on-audit": false},
+                    "PKSA-pkw5-3qxt-b654": {"reason": "Twig < 3.31.1; craftcms/cms 6.0.0-beta.2 pins twig/twig ~3.30.0. Not blocked, still audited; remove once craftcms/cms allows twig/twig >=3.31.1", "on-audit": false},
+                    "PKSA-dq27-x2jc-ksbp": {"reason": "Twig < 3.31.1; craftcms/cms 6.0.0-beta.2 pins twig/twig ~3.30.0. Not blocked, still audited; remove once craftcms/cms allows twig/twig >=3.31.1", "on-audit": false},
+                    "PKSA-szz8-81wy-3x8z": {"reason": "Twig < 3.31.1; craftcms/cms 6.0.0-beta.2 pins twig/twig ~3.30.0. Not blocked, still audited; remove once craftcms/cms allows twig/twig >=3.31.1", "on-audit": false},
+                    "PKSA-hs2m-ms65-2zgg": {"reason": "Twig < 3.31.1; craftcms/cms 6.0.0-beta.2 pins twig/twig ~3.30.0. Not blocked, still audited; remove once craftcms/cms allows twig/twig >=3.31.1", "on-audit": false},
+                    "PKSA-2xyw-sdzb-ywxg": {"reason": "Twig < 3.31.1; craftcms/cms 6.0.0-beta.2 pins twig/twig ~3.30.0. Not blocked, still audited; remove once craftcms/cms allows twig/twig >=3.31.1", "on-audit": false},
+                    "PKSA-k9x8-rxqp-rkb4": {"reason": "Twig < 3.31.1; craftcms/cms 6.0.0-beta.2 pins twig/twig ~3.30.0. Not blocked, still audited; remove once craftcms/cms allows twig/twig >=3.31.1", "on-audit": false},
+                    "PKSA-hjpc-r7p2-zyfx": {"reason": "Twig < 3.31.1; craftcms/cms 6.0.0-beta.2 pins twig/twig ~3.30.0. Not blocked, still audited; remove once craftcms/cms allows twig/twig >=3.31.1", "on-audit": false}
+                }
+            }
         }
     },
     "minimum-stability": "beta",
