@@ -161,8 +161,14 @@ final class PluginTest extends PluginTestCase
         self::assertCount(3, $inline);
         self::assertSame('shade', $inline[2]->getControl()->path());
 
+        // Side by side: two columns, each half the row, without a heading of their own.
         $side = OptionControls::panel($value, layout: Design::LAYOUT_SIDE)->nodes();
-        self::assertSame(50, $side[2]->props()['width']);
+        self::assertSame(['design-column-0-0', 'design-column-0-1'], array_map(static fn($node) => $node->uid(), $side));
+        self::assertSame([50, 50], [$side[0]->props()['width'], $side[1]->props()['width']]);
+        self::assertNull($side[0]->props()['label'] ?? null);
+        // Options without a section are a group of their own, so they stand in a column too.
+        self::assertSame('design-section-0', $side[0]->children()[0]->uid());
+        self::assertNull($side[0]->children()[0]->props()['label'] ?? null);
         self::assertArrayNotHasKey('width', OptionControls::panel($value)->nodes()[2]->props());
     }
 
@@ -179,10 +185,51 @@ final class PluginTest extends PluginTestCase
         $side = OptionControls::nodes($groups, $keys, Design::LAYOUT_SIDE);
         self::assertSame(['Layout', 'Colour'], array_map(static fn($node) => $node->props()['label'], $side));
         self::assertArrayNotHasKey('width', $side[0]->props(), 'the pictures fill the row');
-        self::assertSame(50, $side[1]->props()['width']);
+        self::assertArrayNotHasKey('width', $side[1]->props(), 'one section has nothing to stand beside');
 
         // Left out of this panel (DefinePanelGroups), the pictures no longer widen their section.
-        self::assertSame(50, OptionControls::nodes($groups, $keys, Design::LAYOUT_SIDE, ['variant'])[0]->props()['width']);
+        $columns = OptionControls::nodes($groups, $keys, Design::LAYOUT_SIDE, ['variant']);
+        self::assertSame([50, 50], array_map(static fn($node) => $node->props()['width'], $columns));
+        self::assertSame(['Layout', 'Colour'], array_map(static fn($node) => $node->children()[0]->props()['label'], $columns));
+    }
+
+    public function testSideBySideTheSectionsFillTwoColumnsInReadingOrder(): void
+    {
+        $two = ['a' => 'x', 'b' => 'y'];
+        $groups = [
+            'variant' => Group::fromConfig('variant', ['label' => 'Layout', 'input' => 'tiles', 'section' => 'Layout'], ['_default' => ['value' => 'a', 'image' => '/design-field/blockHero/_default.jpg'], 'wide' => 'b']),
+            'note' => Group::fromConfig('note', ['label' => 'Note'], $two),
+            'tone' => Group::fromConfig('tone', ['label' => 'Tone', 'section' => 'Colour'], $two),
+            'spacing' => Group::fromConfig('spacing', ['label' => 'Spacing', 'section' => 'Spacing'], $two),
+            'shade' => Group::fromConfig('shade', ['label' => 'Shade', 'section' => 'Shade', 'showIf' => ['tone' => 'b']], $two),
+        ];
+        foreach (['one', 'two', 'three', 'four', 'five', 'six'] as $name) {
+            $groups[$name] = Group::fromConfig($name, ['label' => $name, 'input' => 'toggle', 'section' => 'Content'], ['off' => '', 'on' => 'x']);
+        }
+        $groups['motion'] = Group::fromConfig('motion', ['label' => 'Entrance', 'section' => 'Motion'], $two);
+        $keys = array_map(static fn(Group $group) => $group->default, $groups);
+
+        $side = OptionControls::nodes($groups, $keys, Design::LAYOUT_SIDE);
+        $labels = static fn($column) => array_map(static fn($node) => $node->props()['label'] ?? '', $column->children());
+
+        self::assertCount(3, $side);
+        self::assertSame('Layout', $side[0]->props()['label']);
+        // The long list of switches does not start half-way down: what comes before it fills the left column.
+        // Shade waits for another tone: it is in the form, hidden, and counts for nothing.
+        self::assertSame(['', 'Colour', 'Spacing', 'Shade'], $labels($side[1]));
+        self::assertSame(['Content', 'Motion'], $labels($side[2]));
+        self::assertFalse($side[1]->children()[3]->isVisible());
+        self::assertSame('note', $side[1]->children()[0]->children()[0]->getControl()->path());
+
+        // Every option is in the panel once, whichever way it is laid out.
+        $paths = [];
+        $collect = static function (array $nodes) use (&$collect, &$paths): void {
+            foreach ($nodes as $node) {
+                $node instanceof \CraftCms\Cms\Ui\Nodes\Field ? $paths[] = $node->getControl()->path() : $collect($node->children());
+            }
+        };
+        $collect($side);
+        self::assertEqualsCanonicalizing(array_keys($groups), $paths);
     }
 
     public function testTheFieldSettingsOfferViewLayoutAndProfile(): void

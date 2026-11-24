@@ -180,7 +180,7 @@ The map applies to every option with the handle, including a block's own lists; 
 Field settings:
 
 - **View Mode**: **As a panel** (every option open, the default), **As a summary** (one line of what differs from the defaults, with **Edit** to open the panel) or **Collapsed** (a closed section with the number of changes). A summary or collapsed panel starts open on a new element. One profile can use another mode than the field with `'_view' => 'panel'` in its config.
-- **Option Layout**: **In sections** (the default), **Sections side by side** or **Inline**. Side by side, the section with the layout pictures takes the whole row and the other sections pair up below it; in a narrow panel or on a phone, Craft stacks them all.
+- **Option Layout**: **In sections** (the default), **Sections side by side** or **Inline**. Side by side, the section with the layout pictures takes the whole row and the other sections stand below it in two columns of about the same height, the first sections on the left and the rest on the right; in a narrow panel or on a phone, Craft stacks them in the same order. Options without a section join the columns as a group without a heading, so give every option a section (`sections`, or `section` on the option) where the panel should read as a form.
 - **Profile**: the element's own (its type), or one named profile for every element that has the field.
 
 ### Presets
