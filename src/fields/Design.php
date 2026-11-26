@@ -153,12 +153,8 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
             $value = Json::decodeIfJson($value) ?? $value;
         }
 
-        // A panel that was open when the configuration stopped building (a deploy, then an
-        // autosave) posts switches as true/false and sliders as places on their scale.
-        // Neither can be turned into a key now, and stored as they are they would replace
-        // the block's choices: refused, so the element keeps what it has.
-        if (is_array($value) && app(Groups::class)->safeRegistry()->standIn && self::isPanelPost($value)) {
-            return new DesignValue([], [], [], rejected: Json::encode($value), unresolved: true);
+        if (app(Groups::class)->safeRegistry()->standIn) {
+            return $this->requestValueWithoutOptions($value, $element);
         }
 
         // The editor posts a switch as true/false (a plain form: its on key, or '' when off).
@@ -580,6 +576,37 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
         return EntryTypes::getAllEntryTypes()
             ->first(static fn(EntryType $type) => $type->getFieldLayout()->getElementByUid($uid) !== null)
             ?->handle;
+    }
+
+    /**
+     * What a form posts while the configuration does not build. The box that shows the
+     * stored map posts a map back, which is stored as it is. Two things are refused:
+     * what is no map, and the post of a panel that was open when the configuration
+     * stopped building (a deploy, then an autosave): its switches come as true/false
+     * and its sliders as places on their scale, neither can be turned into a key now,
+     * and stored as they are they would replace the block's choices.
+     *
+     * The refused value holds what the element has. A draft is autosaved without
+     * validation, so nothing else would stop an empty map from being written over it.
+     */
+    private function requestValueWithoutOptions(mixed $value, ?ElementInterface $element): DesignValue
+    {
+        $posted = is_array($value) && self::isPanelPost($value) ? null : $this->normalizeValue($value, $element);
+
+        if ($posted !== null && $posted->rejected() === null) {
+            return $posted;
+        }
+
+        // Still the element's value from before this request: it is set after this returns.
+        $current = $element?->getFieldValue($this->handle);
+
+        return new DesignValue(
+            $current instanceof DesignValue ? $current->toArray() : [],
+            [],
+            [],
+            rejected: $posted?->rejected() ?? Json::encode($value),
+            unresolved: true,
+        );
     }
 
     /**

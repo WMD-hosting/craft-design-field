@@ -9,6 +9,7 @@ use CraftCms\Cms\Database\Table;
 use CraftCms\Cms\Entry\Data\EntryType;
 use CraftCms\Cms\Entry\Elements\Entry;
 use CraftCms\Cms\Field\FieldContext;
+use CraftCms\Cms\Field\Matrix;
 use CraftCms\Cms\FieldLayout\FieldLayoutTab;
 use CraftCms\Cms\FieldLayout\LayoutElements\CustomField;
 use CraftCms\Cms\Mcp\Capabilities\Elements as ElementTools;
@@ -271,12 +272,86 @@ final class ConfigFallbackTest extends PluginTestCase
             self::assertSame($stored, $this->storedContent($block->id));
         }
 
+        // A draft is autosaved without validation: nothing refuses the post there, so what
+        // it leaves on the element has to be the stored choices, not an empty map.
+        $loaded = Entry::find()->id($block->id)->status(null)->one();
+        $loaded->setFieldValueFromRequest('design', ['tone' => 'light', 'spacing' => true, Registry::SLIDER_KEY => ['gap' => '1']]);
+        self::assertTrue(Elements::saveElement($loaded, runValidation: false));
+        self::assertSame($stored, $this->storedContent($block->id));
+
+        // The same for something typed into the box that is no map.
+        $loaded = Entry::find()->id($block->id)->status(null)->one();
+        $loaded->setFieldValueFromRequest('design', 'dark');
+        self::assertFalse(Elements::saveElement($loaded));
+        $loaded = Entry::find()->id($block->id)->status(null)->one();
+        $loaded->setFieldValueFromRequest('design', 'dark');
+        self::assertTrue(Elements::saveElement($loaded, runValidation: false));
+        self::assertSame($stored, $this->storedContent($block->id));
+
         // With the configuration back the same form is read as before.
         $this->configure(self::GOOD);
         $loaded = Entry::find()->id($block->id)->status(null)->one();
         $loaded->setFieldValueFromRequest('design', ['tone' => 'light', Registry::SLIDER_KEY => ['gap' => '1']]);
         self::assertTrue(Elements::saveElement($loaded), implode(' ', $loaded->errors()->all()));
         self::assertEquals(['tone' => 'light', 'spacing' => 'normal', 'gap' => '4'], Entry::find()->id($block->id)->status(null)->one()->getFieldValue('design')->keys());
+    }
+
+    public function testBlocksInsideAPageBuilderKeepTheirChoicesWhenThePageIsSaved(): void
+    {
+        $this->configure(self::GOOD);
+
+        $design = new Design(['name' => 'Design', 'handle' => 'design']);
+        self::assertTrue(Fields::saveField($design));
+        $blockType = new EntryType(['name' => 'CTA', 'handle' => 'blockCta', 'hasTitleField' => false]);
+        $blockType->getFieldLayout()->tab('Content', static fn(FieldLayoutTab $tab) => $tab->add(CustomField::make($design)));
+        self::assertTrue(EntryTypes::saveEntryType($blockType));
+        $builder = new Matrix(['name' => 'Page builder', 'handle' => 'pageBuilder']);
+        $builder->setEntryTypes([$blockType]);
+        self::assertTrue(Fields::saveField($builder));
+        $pageType = new EntryType(['name' => 'Page', 'handle' => 'page']);
+        $pageType->getFieldLayout()->tab('Content', static fn(FieldLayoutTab $tab) => $tab->add(CustomField::make($builder)));
+        self::assertTrue(EntryTypes::saveEntryType($pageType));
+        $section = new Section([
+            'name' => 'Pages',
+            'handle' => 'pages',
+            'type' => SectionType::Channel,
+            'siteSettings' => [new SectionSiteSettings(['siteId' => Sites::getPrimarySite()->id])],
+            'entryTypes' => [$pageType],
+        ]);
+        self::assertTrue(Sections::saveSection($section));
+
+        $page = new Entry();
+        $page->sectionId = $section->id;
+        $page->typeId = $pageType->id;
+        $page->title = 'Home';
+        $page->setFieldValue('pageBuilder', [
+            'new1' => ['type' => 'blockCta', 'fields' => ['design' => ['tone' => 'dark', 'gap' => '0']]],
+            'new2' => ['type' => 'blockCta', 'fields' => ['design' => ['spacing' => 'tight']]],
+        ]);
+        self::assertTrue(Elements::saveElement($page), implode(' ', $page->errors()->all()));
+
+        $blocks = Entry::find()->ownerId($page->id)->status(null)->ids();
+        self::assertCount(2, $blocks);
+        $stored = array_map($this->storedContent(...), $blocks);
+
+        $this->configure(self::BROKEN);
+
+        // The page is saved as it is, then with its blocks handed back the way a form does.
+        $loaded = Entry::find()->id($page->id)->status(null)->one();
+        self::assertTrue(Elements::saveElement($loaded), implode(' ', $loaded->errors()->all()));
+        self::assertSame($stored, array_map($this->storedContent(...), $blocks));
+
+        $loaded = Entry::find()->id($page->id)->status(null)->one();
+        $posted = ['sortOrder' => $blocks, 'entries' => []];
+        foreach ($loaded->getFieldValue('pageBuilder')->all() as $block) {
+            $posted['entries'][$block->id] = ['type' => 'blockCta', 'fields' => ['design' => json_encode($block->getFieldValue('design')->toArray())]];
+        }
+        $loaded->setFieldValueFromRequest('pageBuilder', $posted);
+        self::assertTrue(Elements::saveElement($loaded), implode(' ', $loaded->errors()->all()));
+        self::assertSame($stored, array_map($this->storedContent(...), $blocks));
+
+        // And each block renders, with nothing of its design.
+        self::assertSame('||', renderString('{% for block in page.pageBuilder.all() %}{{ block.design }}|{% endfor %}', ['page' => $loaded]));
     }
 
     public function testAFieldShownForOneLayoutStaysInTheForm(): void
