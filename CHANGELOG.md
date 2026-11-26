@@ -1,6 +1,6 @@
 # Release Notes for Design Field
 
-## Unreleased
+## 2.0.0-beta.8 - 2026-11-26
 
 ### Added
 - The configuration check reports a config file left at the Craft 5 path, `config/design-field.php`, which Craft 6 does not read: an error while it is the only one (no option is configured), a warning beside `config/craft/design-field.php`. While it is the only one, admins also see it as a control-panel alert.
