@@ -245,6 +245,21 @@ final class McpSchemaTest extends PluginTestCase
         self::assertSame('{}', $bare['data']['entries'][0]['pageBuilder'][0]['design']);
     }
 
+    public function testTheGraphqlApiReadsAStoredValueThatIsNoMapAsItIs(): void
+    {
+        $field = new Design(['handle' => 'design', 'profile' => 'blockCta']);
+        $resolve = $field->getContentGqlType()['resolve'];
+
+        // Old content that holds a plain string: as MCP returns it, not as a map of
+        // defaults, which a client would write back over it.
+        self::assertSame('dark', $resolve(['design' => $field->normalizeValue('dark', null)]));
+
+        // A source that is no element (nested content) is read by its key.
+        self::assertSame('{"tone":"dark","spacing":"normal","border":"off","shade":"soft"}', $resolve(['design' => $field->normalizeValue(['tone' => 'dark'], null)]));
+        self::assertNull($resolve(['design' => null]));
+        self::assertNull($resolve(null));
+    }
+
     private function tools(): ElementTools
     {
         return $this->app->make(ElementTools::class);

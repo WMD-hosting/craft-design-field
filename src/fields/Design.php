@@ -228,6 +228,8 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
      * The GraphQL API reads the value as it takes it: a JSON string of option handle =>
      * choice key, for the options the element has. Without this, core's string type
      * prints the value, which is the class list a template gets from `{{ block.design }}`.
+     * As with MCP, a stored value that is no option map is returned as it is: read as
+     * a map of defaults, writing it back would replace it without a word.
      *
      * @return array{name:string,type:Type,description:string,resolve:Closure(mixed):?string}
      */
@@ -245,8 +247,12 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
                     default => null,
                 };
 
+                if (!$value instanceof DesignValue) {
+                    return null;
+                }
+
                 // An object also when there is no option: `{}`, never the list `[]`.
-                return $value instanceof DesignValue ? Json::encode((object)$value->keys()) : null;
+                return $value->rejected() ?? Json::encode((object)$value->keys());
             },
         ];
     }
