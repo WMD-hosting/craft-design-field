@@ -5,6 +5,9 @@
 ### Added
 - The configuration check reports a config file left at the Craft 5 path, `config/design-field.php`, which Craft 6 does not read: an error while it is the only one (no option is configured), a warning beside `config/craft/design-field.php`. While it is the only one, admins also see it as a control-panel alert.
 
+### Changed
+- The plugin names its developer as WMD Hosting (https://wmd.hosting/), as its Plugin Store listing does, and its description in the control panel and on Packagist is one sentence.
+
 ### Fixed
 - A configuration that does not build no longer takes the site down. A profile naming a group that is gone, a missing token file or a syntax error in `config/craft/design-field.php` was an error page on every request that read a Design value, and on every save of such an element. Pages now keep rendering, with each template's own defaults instead of the design classes; stored choices stay as they are through a save, and a panel that was open when the file broke is refused instead of saved half-read; MCP and GraphQL read the stored map and MCP refuses to write Design options until the file is fixed. Every control-panel page shows an alert (admins read the reason, with a link to the settings page), the reason is logged once per request, and `design-field:check` still fails on it.
 - A config file of the wrong shape (a group that is a string, a file with a syntax error) is a finding of the configuration check and of the settings page, instead of a crash of both.

@@ -1,6 +1,6 @@
 {
     "name": "wmd/craft-design-field",
-    "description": "One field for every design option of a block: tone, spacing, layout, columns and more, picked from named choices you define once. Swatches, picture tiles, sliders and position grids; options that only show when they apply.",
+    "description": "One field for every design option of a block, picked from choices you define once.",
     "type": "craft-plugin",
     "license": "MIT",
     "keywords": [
@@ -46,8 +46,8 @@
     "extra": {
         "handle": "design-field",
         "name": "Design Field",
-        "developer": "WMD",
-        "developerUrl": "https://wmd.hr/",
+        "developer": "WMD Hosting",
+        "developerUrl": "https://wmd.hosting/",
         "class": "wmd\\designfield\\Plugin",
         "documentationUrl": "https://github.com/WMD-hosting/craft-design-field/blob/2.x/README.md",
         "changelogUrl": "https://raw.githubusercontent.com/WMD-hosting/craft-design-field/2.x/CHANGELOG.md"
