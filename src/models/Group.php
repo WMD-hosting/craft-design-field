@@ -384,6 +384,43 @@ class Group
     }
 
     /**
+     * Returns a copy with every text an editor reads passed through `$translate`: the
+     * option's label, its help text, its section heading and each choice's label. Keys,
+     * classes and pictures stay, so saved values and templates read the same.
+     *
+     * @param callable(string):string $translate
+     * @return self
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function translated(callable $translate): self
+    {
+        $text = static fn(string $text): string => $text === '' ? '' : (string)$translate($text);
+        $options = $this->options;
+
+        foreach ($options as $key => $option) {
+            $options[$key]['label'] = $text((string)$option['label']);
+        }
+
+        return new self(
+            handle: $this->handle,
+            label: $text($this->label),
+            options: $options,
+            default: $this->default,
+            aliases: $this->aliases,
+            input: $this->input,
+            instructions: $text($this->instructions),
+            iconsOnly: $this->iconsOnly,
+            showIf: $this->showIf,
+            columns: $this->columns,
+            textOnly: $this->textOnly,
+            section: $text($this->section),
+            hidden: $this->hidden,
+        );
+    }
+
+    /**
      * Returns a copy whose picker leaves out some choices (the settings page's "Hide this
      * choice", per block). They stay options: saved blocks, presets and validation keep
      * them, and a block that has one still sees it. `auto` and the default always show.

@@ -203,6 +203,21 @@ Presets can also be edited on the settings page (Presets tab), which saves them 
 
 A block shows its own presets first, then the `*` ones; its own wins when both use the same name. A preset sets only the groups the block has, and is hidden when none apply, so one `*` list serves every block.
 
+### Translations
+
+The panel speaks the editor's language. The names in the config (options, choices, section headings, help text, presets) are the site's own texts, so the field translates them in Craft's `site` category, as Craft translates the names of fields and entry types: give them in `lang/<locale>/site.php` (or the site's `translations/` folder), keyed by the English of the config.
+
+```php
+// lang/hr/site.php
+return [
+    'Layout' => 'Izgled',
+    'Block default' => 'Zadano za blok',
+    'Split with image' => 'Tekst i slika jedno uz drugo',
+];
+```
+
+A name without a translation stays as the config has it. The panel's own words (**Edit**, the number of changes, **Most used**, **Presets**) come with the plugin in English and Croatian. Saved values, templates, the settings page and the schema for agents keep the config's words.
+
 ## The settings page
 
 ![The settings page: the configuration check](resources/screenshots/settings-configuration.png)
