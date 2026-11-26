@@ -106,7 +106,15 @@ return [
 ];
 ```
 
-A config file written for 1.x works as it is: move it from `config/design-field.php` to `config/craft/design-field.php`. Token files stay in `config/designtokens/`.
+A config file written for 1.x works as it is: move it from `config/design-field.php` to `config/craft/design-field.php`. Token files stay in `config/designtokens/`. A file left at the old path is not read; the configuration check reports it, and while it is the only one the control panel shows an alert.
+
+### When the configuration does not build
+
+A profile that names a group that is gone, a token file that is missing or a syntax error in the config file does not take the site down. Until it is fixed:
+
+- **Pages keep rendering, without the design classes.** Every option reads as an empty token: `{{ block.design }}` prints nothing, `design.has('tone')` is false, `classOr()` and `keyOr()` give the template's own fallback, and a block draws its default layout. A page cache keeps what it rendered in that time, so clear it once the file is fixed.
+- **Stored choices stay as they are.** An element shows its Design value as the stored JSON instead of the panel, and saving the element writes that JSON back unchanged. MCP and GraphQL read the stored map; MCP refuses to write Design options.
+- **The control panel says so.** Every page shows an alert: admins read the reason, with a link to the settings page, and everyone else is told the options are away. The reason is also logged (once per request) and is the one finding of `php artisan design-field:check`, which exits with 1: run it in your deploy to stop such a file before it is live.
 
 ### Group settings
 
@@ -229,7 +237,7 @@ The **Looks** and **Presets** tabs, and **Customize this block** on the Preview 
 - **Looks**: how options look to editors. **Quick switch** shows every option of one style another way on every block (Icons as Labels only, for editors who prefer words); an option that cannot take the new style keeps its own. **Option looks** has one row per option, most used first: its look on every block that has it, and the section heading it is listed under. A look saved here wins over the looks in the config file (`inputs`, `groupOverrides`, `profileOverrides`). A look for one block only is set on the Preview tab (**Customize this block**). Order, last wins: config file, quick switch, option looks, this block. **Labels and icons** opens one option's choices: another name and another icon (Craft's icon picker) for each, on every block, so Tab size can read S · M · L instead of "Aa" samples with the Labels only look. An empty cell keeps what the config file says; only what editors read changes, saved values and templates use the keys (`inputs.meta`). **Try these looks** shows one block's panel with the looks as they stand in the form, before a save: it follows the quick switch at once, and a changed row after the block is picked again.
 - **Presets**: one row per [preset](#presets): the block (or every block), its name, and its choices as `group=key, group=key`. A save is refused, with the reason, when a choice names a group or key no block has. When `design-field.php` has a `presets` key, that file wins and the tab shows its presets read only.
 
-- **Configuration**: what `design-field:check` prints. The configuration check (blocks in the file this install does not have, fields set to a missing block, preset choices no block offers, option pictures missing under the web root) and the [template check](#template-check), one row per finding.
+- **Configuration**: what `design-field:check` prints. The configuration check (a config file left at the Craft 5 path, blocks in the file this install does not have, fields set to a missing block, preset choices no block offers, option pictures missing under the web root) and the [template check](#template-check), one row per finding.
 - **Preview**: the real Design panel of any block, with its defaults and presets. Layouts show and hide their options and presets apply; the choices made in it are never saved. The panel ends with **Customize this block**: one dropdown per option with the looks it can take on this block, for a look on this block only (a long list as a dropdown here, buttons everywhere else). The panel shows a look as soon as it is picked, before anything is saved; **Save** then writes the looks of this block to the settings file (`inputs.profiles`), where admin changes are allowed. "As on every block" removes the block's own look. Under the panel, the block's group handles and keys, for writing `presets`. With `blockPreviewUrl` in the config file, the block itself renders next to the panel and follows every change, drawn at a real desktop (1280), tablet (768) or mobile (375) width and scaled to fit, so its breakpoints are the device's:
 
   ```php
@@ -373,7 +381,7 @@ The field resolves to a JSON string of `group => key`, and accepts the same JSON
 
 Craft 6 sites are new installs, so there is no in-place upgrade from 1.x. What carries over:
 
-- **The config file**, as it is, at its new path `config/craft/design-field.php`. Options that 1.x kept in the settings tables (project config) have to be written into the file first.
+- **The config file**, as it is, at its new path `config/craft/design-field.php`. At `config/design-field.php` it is not read and no option shows: `php artisan design-field:check` says so. Options that 1.x kept in the settings tables (project config) have to be written into the file first.
 - **Stored values**: the field stores the same JSON, so content imported from a Craft 5 site reads the same.
 - **Templates**: `craft.designField` has the same API.
 - **Conditions**: the Design → Variant rule has the same class name and stored config.

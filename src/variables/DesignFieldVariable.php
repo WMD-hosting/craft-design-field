@@ -22,6 +22,10 @@ use wmd\designfield\services\Groups;
  * Same API as the Craft 5 plugin's variable. An element without a Design field
  * is read through its old option fields (the legacy path).
  *
+ * Templates call it on every page, so it reads with the safe registry: with a
+ * configuration that does not build, values come back without options (empty
+ * tokens) instead of an exception.
+ *
  * @author WMD
  * @since 1.0.0
  */
@@ -53,7 +57,7 @@ class DesignFieldVariable
      */
     public function value(array $keys = [], ?string $profile = null): DesignValue
     {
-        return $this->groups->getRegistry()->value($keys, $profile);
+        return $this->groups->safeRegistry()->value($keys, $profile);
     }
 
     /**
@@ -76,7 +80,7 @@ class DesignFieldVariable
             return $block;
         }
 
-        $registry = $this->groups->getRegistry();
+        $registry = $this->groups->safeRegistry();
 
         if ($block instanceof ElementInterface) {
             $fields = $block->getFieldLayout()?->getCustomFields() ?? [];
@@ -130,7 +134,7 @@ class DesignFieldVariable
      */
     public function groups(): array
     {
-        return $this->groups->getRegistry()->groups;
+        return $this->groups->safeRegistry()->groups;
     }
 
     /**

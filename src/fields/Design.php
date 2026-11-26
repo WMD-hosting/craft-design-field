@@ -23,6 +23,7 @@ use CraftCms\Cms\Ui\Contracts\Control;
 use CraftCms\Cms\Ui\Enums\ChoicePresentation;
 use CraftCms\Cms\Ui\Controls\Choice;
 use CraftCms\Cms\Ui\Controls\Textarea;
+use CraftCms\Cms\Ui\Nodes\Callout;
 use CraftCms\Cms\Ui\Nodes\Field as UiField;
 use CraftCms\Cms\Ui\Nodes\MarkdownContent;
 use CraftCms\Cms\Ui\Ui;
@@ -138,7 +139,9 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
             return $value;
         }
 
-        return app(Groups::class)->getRegistry()->valueFromInput($value, $this->profilesFor($element));
+        // Read with the safe registry: a configuration that does not build must not stop
+        // every page and every save that touches a Design value.
+        return app(Groups::class)->safeRegistry()->valueFromInput($value, $this->profilesFor($element));
     }
 
     #[Override]
@@ -151,7 +154,7 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
         // The editor posts a switch as true/false (a plain form: its on key, or '' when off).
         // Sliders come as places on their scale (Registry::SLIDER_KEY), mapped by the registry.
         if (is_array($value)) {
-            foreach (app(Groups::class)->getRegistry()->groupsFor($this->profilesFor($element)) as $handle => $group) {
+            foreach (app(Groups::class)->safeRegistry()->groupsFor($this->profilesFor($element)) as $handle => $group) {
                 if ($group->input !== Group::INPUT_TOGGLE || count($group->options) !== 2 || !array_key_exists($handle, $value)) {
                     continue;
                 }
@@ -216,9 +219,15 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
             }
         }
 
+        // Without a configuration there is no option to describe, so no option can be
+        // written: reads then return the stored map, which would otherwise be reset.
+        // The reason stays out of the schema: whoever may read a schema is not always an
+        // admin, and the reason can name a path on the server. It is logged and in the alert.
         return array_filter([
             'type' => 'object',
-            'description' => 'Design options as option handle => choice key. Send the whole map: an option left out goes back to its default.',
+            'description' => app(Groups::class)->failure() === null
+                ? 'Design options as option handle => choice key. Send the whole map: an option left out goes back to its default.'
+                : 'Design options cannot be written now: the Design Field configuration does not build. Leave this field out of the write, and tell an administrator of the site.',
             'properties' => $properties,
             'additionalProperties' => false,
         ], static fn(mixed $part) => $part !== []);
@@ -246,7 +255,7 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
      * The value as MCP tools return it: the choice of every option the element has,
      * which is exactly what {@see getInputSchema()} takes back. Keys stored for options
      * the element no longer has are left out; a stored value that is no option map is
-     * returned as it is.
+     * returned as it is. While the configuration does not build, it is the stored map.
      *
      * @return array<string,string>|string
      */
@@ -277,7 +286,7 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
 
         // A profile can show its panel in another mode, and a new element starts with a
         // closed panel open: that is when the editor picks how it looks.
-        $registry = app(Groups::class)->getRegistry();
+        $registry = app(Groups::class)->safeRegistry();
         $profiles = $this->profilesFor($context->element);
         $mode = $registry->viewFor($profiles) ?? $this->viewMode;
         $element = $context->element;
@@ -355,8 +364,9 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
     public function settingsUi(UiContext $context = new UiContext): Ui
     {
         $profiles = [['label' => "The element's own (its type)", 'value' => '']];
+        $failure = app(Groups::class)->failure();
 
-        foreach (app(Groups::class)->getRegistry()->profileNames() as $name) {
+        foreach (app(Groups::class)->safeRegistry()->profileNames() as $name) {
             $profiles[] = ['label' => $name, 'value' => $name];
         }
 
@@ -366,6 +376,7 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
         }
 
         return Ui::make([
+            ...($failure === null ? [] : [Callout::make('design-field-config-error', 'The Design Field configuration does not build, so no block is listed below and no element shows its options: ' . $failure)->variant('danger')]),
             UiField::make('Show the options')
                 ->instructions('A block can set its own in the config file (`_view`); a new element always starts open.')
                 ->control(Choice::make('viewMode')->withoutPlaceholder()->options([
@@ -483,7 +494,7 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
      */
     public function optionSets(): array
     {
-        $registry = app(Groups::class)->getRegistry();
+        $registry = app(Groups::class)->safeRegistry();
 
         if ($this->profile !== '') {
             return [$registry->groupsFor($this->profile)];

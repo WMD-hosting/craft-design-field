@@ -127,7 +127,7 @@ class DesignVariantConditionRule extends BaseMultiSelectConditionRule implements
     #[Override]
     protected function options(): array
     {
-        $registry = app(Groups::class)->getRegistry();
+        $registry = app(Groups::class)->safeRegistry();
         $sets = [];
 
         foreach ($this->fieldInstances() as $field) {
