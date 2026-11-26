@@ -8,7 +8,10 @@
 namespace wmd\designfield\services;
 
 use CraftCms\Cms\Support\Json;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
+use ParseError;
+use Throwable;
 use wmd\designfield\helpers\InputOverrides;
 use wmd\designfield\helpers\Registry;
 
@@ -34,10 +37,23 @@ class Groups
      */
     public const CONFIG_FILE = 'craft/design-field.php';
 
+    /**
+     * Where the Craft 5 plugin had its config file. Craft 6 does not read it there.
+     */
+    public const CRAFT5_CONFIG_FILE = 'design-field.php';
+
     // Private Properties
     // =========================================================================
 
     private ?Registry $registry = null;
+
+    /**
+     * @var ?InvalidArgumentException Why the registry does not build, kept so a page of
+     * many blocks does not build it again for each of them
+     */
+    private ?InvalidArgumentException $failure = null;
+
+    private ?Registry $standIn = null;
 
     /**
      * @var array<string,mixed>|null The config file's array, read once per request
@@ -48,7 +64,9 @@ class Groups
     // =========================================================================
 
     /**
-     * The registry, built once per request.
+     * The registry, built once per request. For the check, the settings page and the
+     * console: they report why it does not build. Whatever reads a value to render a
+     * page or a form asks {@see safeRegistry()} instead.
      *
      * @return Registry
      * @throws InvalidArgumentException if the config or a token file is invalid
@@ -58,10 +76,89 @@ class Groups
      */
     public function getRegistry(): Registry
     {
-        return $this->registry ??= Registry::fromConfig(
-            ['tileImage' => $this->tileImage(...)] + $this->config(),
-            $this->loadTokens(...),
-        );
+        if ($this->registry !== null) {
+            return $this->registry;
+        }
+
+        if ($this->failure !== null) {
+            throw $this->failure;
+        }
+
+        try {
+            return $this->registry = $this->build([]);
+        } catch (InvalidArgumentException $e) {
+            throw $this->failure = $e;
+        }
+    }
+
+    /**
+     * The registry for reading values: it never throws. When the configuration does not
+     * build, the reason is logged once and a registry without options stands in
+     * ({@see Registry::standIn()}), so pages keep rendering, with the templates' own
+     * defaults instead of the design classes, and stored values stay as they are.
+     *
+     * @return Registry
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function safeRegistry(): Registry
+    {
+        try {
+            return $this->getRegistry();
+        } catch (InvalidArgumentException $e) {
+            if ($this->standIn === null) {
+                Log::error('Design Field: the configuration does not build, so design values are read without their options. ' . $e->getMessage(), ['exception' => $e]);
+            }
+
+            return $this->standIn ??= Registry::standIn();
+        }
+    }
+
+    /**
+     * Why the configuration does not build, null when it does.
+     *
+     * @return ?string
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function failure(): ?string
+    {
+        try {
+            $this->getRegistry();
+        } catch (InvalidArgumentException $e) {
+            return $e->getMessage();
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether a config file sits where the Craft 5 plugin read it (`config/design-field.php`).
+     * Craft 6 reads `config/craft/design-field.php` only, so that file configures nothing.
+     *
+     * @return bool
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function hasCraft5File(): bool
+    {
+        return is_file(config_path(self::CRAFT5_CONFIG_FILE));
+    }
+
+    /**
+     * Whether the config file exists at its Craft 6 path.
+     *
+     * @return bool
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public function hasConfigFile(): bool
+    {
+        return is_file(config_path(self::CONFIG_FILE));
     }
 
     /**
@@ -182,6 +279,7 @@ class Groups
      * the settings page saved.
      *
      * @return array<string,mixed>
+     * @throws InvalidArgumentException if the file does not load (a syntax error, an exception it throws)
      *
      * @author WMD
      * @since 2.0.0
@@ -189,7 +287,17 @@ class Groups
     public function fileConfig(): array
     {
         $path = config_path(self::CONFIG_FILE);
-        $config = is_file($path) ? require $path : [];
+
+        try {
+            $config = is_file($path) ? require $path : [];
+        } catch (Throwable $e) {
+            throw new InvalidArgumentException(sprintf(
+                'config/%s does not load: %s%s.',
+                self::CONFIG_FILE,
+                rtrim($e->getMessage(), '.'),
+                $e instanceof ParseError ? ' on line ' . $e->getLine() : '',
+            ), previous: $e);
+        }
 
         return is_array($config) ? $config : [];
     }
@@ -207,7 +315,7 @@ class Groups
      */
     public function registryWith(array $overrides): Registry
     {
-        return Registry::fromConfig($overrides + ['tileImage' => $this->tileImage(...)] + $this->config(), $this->loadTokens(...));
+        return $this->build($overrides);
     }
 
     /**
@@ -233,6 +341,28 @@ class Groups
             return $build();
         } finally {
             $this->registry = $own;
+        }
+    }
+
+    /**
+     * Builds a registry from the configuration with some keys replaced.
+     *
+     * Whatever stops it is one kind of exception: a config of the wrong shape (a group
+     * that is a string, a profile that is no list) makes PHP raise a TypeError or a
+     * warning deep in the build, which nothing that catches a configuration error expects.
+     *
+     * @param array<string,mixed> $overrides
+     * @return Registry
+     * @throws InvalidArgumentException if the configuration does not build
+     */
+    private function build(array $overrides): Registry
+    {
+        try {
+            return Registry::fromConfig($overrides + ['tileImage' => $this->tileImage(...)] + $this->config(), $this->loadTokens(...));
+        } catch (InvalidArgumentException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new InvalidArgumentException('The configuration does not have the shape the plugin reads: ' . rtrim($e->getMessage(), '.') . '.', previous: $e);
         }
     }
 

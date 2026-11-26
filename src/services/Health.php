@@ -58,15 +58,20 @@ class Health
      */
     public function check(): array
     {
+        // Said first, and whether or not the rest can be checked: a file at the Craft 5
+        // path is the likely reason a site ported from Craft 5 shows no options at all.
+        $strayFile = $this->_craft5File();
+
         // A configuration that does not build (unknown group, empty token file…) is the
         // one finding that matters; the other checks need a registry.
         try {
             $registry = $this->groups->getRegistry();
         } catch (InvalidArgumentException $e) {
-            return [$this->_finding(self::ERROR, $e->getMessage())];
+            return [...$strayFile, $this->_finding(self::ERROR, $e->getMessage())];
         }
 
         return array_merge(
+            $strayFile,
             $this->settingsFile->isBroken() ? [$this->_finding(self::ERROR, sprintf('config/%s is not valid JSON, so the looks and presets saved on the settings page are not applied. Fix the file, or delete it and save them again.', SettingsFile::FILE))] : [],
             $this->_unknownProfiles($registry),
             $this->_fieldProfiles($registry),
@@ -146,6 +151,27 @@ class Health
 
     // Private Methods
     // =========================================================================
+
+    /**
+     * A config file at the Craft 5 path, `config/design-field.php`, which Craft 6 does
+     * not read: an error when it is the only one (nothing is configured), a warning when
+     * the file at the Craft 6 path is there too (a leftover).
+     *
+     * @return list<array{level:string,message:string}>
+     */
+    private function _craft5File(): array
+    {
+        if (!$this->groups->hasCraft5File()) {
+            return [];
+        }
+
+        $old = 'config/' . Groups::CRAFT5_CONFIG_FILE;
+        $new = 'config/' . Groups::CONFIG_FILE;
+
+        return [$this->groups->hasConfigFile()
+            ? $this->_finding(self::WARNING, "$old is not read: the configuration is $new. Delete the old file, or move what only it holds into the new one.")
+            : $this->_finding(self::ERROR, "$old is not read on Craft 6, so no option is configured. Move the file to $new.")];
+    }
 
     /**
      * Profiles named after nothing on this install (a renamed or deleted type).

@@ -9,4 +9,5 @@ return [
     'Most used' => 'Najčešće birano',
     'All choices' => 'Svi izbori',
     'Presets' => 'Predlošci',
+    'Design Field: the Design options are not available until an administrator fixes the plugin’s configuration.' => 'Design Field: opcije dizajna nisu dostupne dok administrator ne ispravi konfiguraciju dodatka.',
 ];
