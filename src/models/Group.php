@@ -302,10 +302,10 @@ class Group
     }
 
     /**
-     * Returns a copy with other labels or icons on some options (what editors read and
-     * see; the keys, and so saved values and templates, stay the same).
+     * Returns a copy with other labels, icons or descriptions on some options (what editors
+     * read and see; the keys, and so saved values and templates, stay the same).
      *
-     * @param array<string,array{label?:string,icon?:string}> $meta Option key => label and/or icon
+     * @param array<string,array{label?:string,icon?:string,description?:string}> $meta Option key => label, icon and/or description
      * @return self
      *
      * @author WMD
@@ -319,7 +319,7 @@ class Group
             if (!isset($options[$key])) {
                 continue;
             }
-            foreach (['label', 'icon'] as $name) {
+            foreach (['label', 'icon', 'description'] as $name) {
                 if (isset($changes[$name]) && $changes[$name] !== '') {
                     $options[$key][$name] = $changes[$name];
                 }
