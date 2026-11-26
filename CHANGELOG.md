@@ -1,5 +1,10 @@
 # Release Notes for Design Field
 
+## Unreleased
+
+### Fixed
+- A value that is a list (`["dark"]`), or one whose choice is a list or a map (`{"tone": ["dark"]}`), is refused on save with "… is not a design value", whichever way it arrives. Sent through a GraphQL mutation or set from PHP it used to be accepted: the list was stored under `0` beside every default, and such a choice counted as not chosen, so the block's options were reset without an error. MCP already refused both by its schema.
+
 ## 2.0.0-beta.7 - 2026-11-26
 
 ### Added

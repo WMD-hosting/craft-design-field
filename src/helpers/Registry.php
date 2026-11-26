@@ -416,7 +416,8 @@ class Registry
      * array, a GraphQL or MCP payload.
      *
      * Empty input means no choices yet. Anything else that is not a key map
-     * (a plain string such as `dark`, a number) is kept as rejected, so the
+     * (a plain string such as `dark`, a number, a list such as `["dark"]`, a
+     * choice that is itself a list or a map) is kept as rejected, so the
      * field's validation fails instead of silently resetting every option.
      *
      * @param mixed $input JSON object string, array of group handle => option key, or empty
@@ -435,7 +436,13 @@ class Registry
         }
 
         if (is_array($keys)) {
-            return $this->value($this->_sliderKeys($keys, $profile), $profile);
+            $keys = $this->_sliderKeys($keys, $profile);
+
+            if (!self::_isKeyMap($keys)) {
+                return new DesignValue([], $this->groupsFor($profile), $this->groups, rejected: is_string($input) ? $input : Json::encode($input));
+            }
+
+            return $this->value($keys, $profile);
         }
 
         $rejected = is_string($input) ? $input : (is_scalar($input) ? Json::encode($input) : get_debug_type($input));
@@ -619,6 +626,24 @@ class Registry
             : ($config['options'] ?? []);
 
         return Group::fromConfig($handle, $config, $rawOptions);
+    }
+
+    /**
+     * Whether an array is a map of option handle => choice key: not a list, and every
+     * choice a string, a number or a switch's true/false, or null for none. A list
+     * would be stored under `0`, `1`… beside every default, and a choice that is an
+     * array would count as not chosen: both reset the block without a word.
+     *
+     * @param array<array-key,mixed> $keys Input with the sliders' places taken out
+     * @return bool
+     */
+    private static function _isKeyMap(array $keys): bool
+    {
+        if ($keys !== [] && array_is_list($keys)) {
+            return false;
+        }
+
+        return array_all($keys, static fn(mixed $key) => $key === null || is_scalar($key));
     }
 
     /**
