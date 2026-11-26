@@ -1,5 +1,11 @@
 # Release Notes for Design Field
 
+## 2.0.0-beta.9 - 2026-11-26
+
+### Added
+- A layout tile says what it shows under its name when its option has a `description`: one or two lines in a smaller type, the whole text in the tile's tooltip. A tile without one shows its name alone, as before. The description is translated in the `site` category like the name.
+- `Group::withOptionMeta()` takes a `description` too, so a `DefinePanelGroups` listener can give a choice a shorter name and say the rest under it.
+
 ## 2.0.0-beta.8 - 2026-11-26
 
 ### Added

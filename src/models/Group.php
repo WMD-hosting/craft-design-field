@@ -302,10 +302,10 @@ class Group
     }
 
     /**
-     * Returns a copy with other labels or icons on some options (what editors read and
-     * see; the keys, and so saved values and templates, stay the same).
+     * Returns a copy with other labels, icons or descriptions on some options (what editors
+     * read and see; the keys, and so saved values and templates, stay the same).
      *
-     * @param array<string,array{label?:string,icon?:string}> $meta Option key => label and/or icon
+     * @param array<string,array{label?:string,icon?:string,description?:string}> $meta Option key => label, icon and/or description
      * @return self
      *
      * @author WMD
@@ -319,7 +319,7 @@ class Group
             if (!isset($options[$key])) {
                 continue;
             }
-            foreach (['label', 'icon'] as $name) {
+            foreach (['label', 'icon', 'description'] as $name) {
                 if (isset($changes[$name]) && $changes[$name] !== '') {
                     $options[$key][$name] = $changes[$name];
                 }
@@ -385,8 +385,8 @@ class Group
 
     /**
      * Returns a copy with every text an editor reads passed through `$translate`: the
-     * option's label, its help text, its section heading and each choice's label. Keys,
-     * classes and pictures stay, so saved values and templates read the same.
+     * option's label, its help text, its section heading and each choice's label and
+     * description. Keys, classes and pictures stay, so saved values and templates read the same.
      *
      * @param callable(string):string $translate
      * @return self
@@ -401,6 +401,10 @@ class Group
 
         foreach ($options as $key => $option) {
             $options[$key]['label'] = $text((string)$option['label']);
+
+            if (is_string($option['description'] ?? null)) {
+                $options[$key]['description'] = $text($option['description']);
+            }
         }
 
         return new self(

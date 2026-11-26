@@ -46,4 +46,6 @@ craft-radio-group:has(craft-radio[data-card]>img[slot=icon][src$="#df-tile"]){--
 .df-mark--column-0 i{top:2px}
 .df-mark--column-1 i{top:calc(50% - 2.5px)}
 .df-mark--column-2 i{bottom:2px}
-
+/* A layout tile's name and, under it, what it shows (an option's description): two lines at most. */
+.df-tile{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;text-align:center}
+.df-tile-note{font-size:11px;line-height:1.3;font-weight:400;opacity:.72;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}

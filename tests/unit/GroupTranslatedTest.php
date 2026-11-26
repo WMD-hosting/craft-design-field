@@ -25,6 +25,27 @@ final class GroupTranslatedTest extends TestCase
         self::assertSame(['[Block default]', '[Light]', '[Night]'], array_column($translated->options, 'label'));
     }
 
+    public function testOptionMetaGivesAChoiceANameAndADescription(): void
+    {
+        $group = Group::fromConfig('variant', ['label' => 'Layout'], ['row' => ['value' => 'row', 'label' => 'Trust row: a sticky label']]);
+
+        $named = $group->withOptionMeta(['row' => ['label' => 'Trust row', 'description' => 'A sticky label'], 'gone' => ['label' => 'x']]);
+
+        self::assertSame(['Trust row', 'A sticky label'], [$named->options['row']['label'], $named->options['row']['description']]);
+        self::assertArrayNotHasKey('gone', $named->options, 'a key the option does not have adds nothing');
+        self::assertSame('Trust row: a sticky label', $group->options['row']['label'], 'a copy: the group stays');
+    }
+
+    public function testAChoicesDescriptionIsTranslatedToo(): void
+    {
+        $group = Group::fromConfig('variant', ['label' => 'Layout'], ['row' => ['value' => 'row', 'label' => 'Row', 'description' => 'Logos in a row']]);
+
+        $translated = $group->translated(static fn(string $text) => "[$text]");
+
+        self::assertSame('[Logos in a row]', $translated->options['row']['description']);
+        self::assertNull($translated->options['auto']['description'] ?? null, 'none stays none');
+    }
+
     public function testKeysClassesAndTheRestStay(): void
     {
         $group = Group::fromConfig('tone', ['label' => 'Tone', 'input' => 'select', 'showIf' => ['variant' => ['band']]], [
