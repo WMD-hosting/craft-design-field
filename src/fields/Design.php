@@ -23,6 +23,7 @@ use CraftCms\Cms\Ui\Contracts\Control;
 use CraftCms\Cms\Ui\Enums\ChoicePresentation;
 use CraftCms\Cms\Ui\Controls\Choice;
 use CraftCms\Cms\Ui\Controls\Textarea;
+use CraftCms\Cms\Ui\Nodes\Callout;
 use CraftCms\Cms\Ui\Nodes\Field as UiField;
 use CraftCms\Cms\Ui\Nodes\MarkdownContent;
 use CraftCms\Cms\Ui\Ui;
@@ -33,9 +34,11 @@ use GraphQL\Type\Definition\Type;
 use Illuminate\Validation\Rule;
 use InvalidArgumentException;
 use Override;
+use stdClass;
 use wmd\designfield\events\DefinePanelGroups;
 use wmd\designfield\fields\conditions\DesignVariantConditionRule;
 use wmd\designfield\helpers\OptionOrder;
+use wmd\designfield\helpers\Registry;
 use wmd\designfield\http\SettingsScreen;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
@@ -138,7 +141,9 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
             return $value;
         }
 
-        return app(Groups::class)->getRegistry()->valueFromInput($value, $this->profilesFor($element));
+        // Read with the safe registry: a configuration that does not build must not stop
+        // every page and every save that touches a Design value.
+        return app(Groups::class)->safeRegistry()->valueFromInput($value, $this->profilesFor($element));
     }
 
     #[Override]
@@ -148,10 +153,14 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
             $value = Json::decodeIfJson($value) ?? $value;
         }
 
+        if (app(Groups::class)->safeRegistry()->standIn) {
+            return $this->requestValueWithoutOptions($value, $element);
+        }
+
         // The editor posts a switch as true/false (a plain form: its on key, or '' when off).
         // Sliders come as places on their scale (Registry::SLIDER_KEY), mapped by the registry.
         if (is_array($value)) {
-            foreach (app(Groups::class)->getRegistry()->groupsFor($this->profilesFor($element)) as $handle => $group) {
+            foreach (app(Groups::class)->safeRegistry()->groupsFor($this->profilesFor($element)) as $handle => $group) {
                 if ($group->input !== Group::INPUT_TOGGLE || count($group->options) !== 2 || !array_key_exists($handle, $value)) {
                     continue;
                 }
@@ -216,12 +225,58 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
             }
         }
 
+        // Without a configuration there is no option to describe, and nothing sent could
+        // be checked: an empty map or null would pass and reset the block. So nothing
+        // matches (`not: {}`), and reads return the stored map meanwhile.
+        // The reason stays out of the schema: whoever may read a schema is not always an
+        // admin, and the reason can name a path on the server. It is logged and in the alert.
+        if (app(Groups::class)->failure() !== null) {
+            return [
+                'type' => 'object',
+                'description' => 'Design options cannot be written now: the Design Field configuration does not build. Leave this field out of the write, and tell an administrator of the site.',
+                'not' => new stdClass(),
+            ];
+        }
+
         return array_filter([
             'type' => 'object',
             'description' => 'Design options as option handle => choice key. Send the whole map: an option left out goes back to its default.',
             'properties' => $properties,
             'additionalProperties' => false,
         ], static fn(mixed $part) => $part !== []);
+    }
+
+    /**
+     * The GraphQL API reads the value as it takes it: a JSON string of option handle =>
+     * choice key, for the options the element has. Without this, core's string type
+     * prints the value, which is the class list a template gets from `{{ block.design }}`.
+     * As with MCP, a stored value that is no option map is returned as it is: read as
+     * a map of defaults, writing it back would replace it without a word.
+     *
+     * @return array{name:string,type:Type,description:string,resolve:Closure(mixed):?string}
+     */
+    #[Override]
+    public function getContentGqlType(): array
+    {
+        return [
+            'name' => $this->handle,
+            'type' => Type::string(),
+            'description' => 'The chosen key of every design option the element has, as a JSON object of option handle => choice key.',
+            'resolve' => function(mixed $source): ?string {
+                $value = match (true) {
+                    is_object($source) && method_exists($source, 'getFieldValue') => $source->getFieldValue($this->handle),
+                    is_array($source) => $source[$this->handle] ?? null,
+                    default => null,
+                };
+
+                if (!$value instanceof DesignValue) {
+                    return null;
+                }
+
+                // An object also when there is no option: `{}`, never the list `[]`.
+                return $value->rejected() ?? Json::encode((object)$value->keys());
+            },
+        ];
     }
 
     /**
@@ -246,7 +301,7 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
      * The value as MCP tools return it: the choice of every option the element has,
      * which is exactly what {@see getInputSchema()} takes back. Keys stored for options
      * the element no longer has are left out; a stored value that is no option map is
-     * returned as it is.
+     * returned as it is. While the configuration does not build, it is the stored map.
      *
      * @return array<string,string>|string
      */
@@ -277,7 +332,7 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
 
         // A profile can show its panel in another mode, and a new element starts with a
         // closed panel open: that is when the editor picks how it looks.
-        $registry = app(Groups::class)->getRegistry();
+        $registry = app(Groups::class)->safeRegistry();
         $profiles = $this->profilesFor($context->element);
         $mode = $registry->viewFor($profiles) ?? $this->viewMode;
         $element = $context->element;
@@ -355,8 +410,9 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
     public function settingsUi(UiContext $context = new UiContext): Ui
     {
         $profiles = [['label' => "The element's own (its type)", 'value' => '']];
+        $failure = app(Groups::class)->failure();
 
-        foreach (app(Groups::class)->getRegistry()->profileNames() as $name) {
+        foreach (app(Groups::class)->safeRegistry()->profileNames() as $name) {
             $profiles[] = ['label' => $name, 'value' => $name];
         }
 
@@ -366,6 +422,7 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
         }
 
         return Ui::make([
+            ...($failure === null ? [] : [Callout::make('design-field-config-error', 'The Design Field configuration does not build, so no block is listed below and no element shows its options: ' . $failure)->variant('danger')]),
             UiField::make('Show the options')
                 ->instructions('A block can set its own in the config file (`_view`); a new element always starts open.')
                 ->control(Choice::make('viewMode')->withoutPlaceholder()->options([
@@ -417,7 +474,9 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
                 }
 
                 if ($value->rejected() !== null) {
-                    $fail(sprintf('“%s” is not a design value. Send a JSON object of option handle => choice key, e.g. {"tone": "dark"}.', mb_strimwidth($value->rejected(), 0, 60, '…')));
+                    $fail(app(Groups::class)->failure() === null
+                        ? sprintf('“%s” is not a design value. Send a JSON object of option handle => choice key, e.g. {"tone": "dark"}.', mb_strimwidth($value->rejected(), 0, 60, '…'))
+                        : 'The design options cannot be saved from this form while the Design Field configuration does not build. What is stored is kept: reload the page.');
 
                     return;
                 }
@@ -483,7 +542,7 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
      */
     public function optionSets(): array
     {
-        $registry = app(Groups::class)->getRegistry();
+        $registry = app(Groups::class)->safeRegistry();
 
         if ($this->profile !== '') {
             return [$registry->groupsFor($this->profile)];
@@ -550,6 +609,48 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
         return EntryTypes::getAllEntryTypes()
             ->first(static fn(EntryType $type) => $type->getFieldLayout()->getElementByUid($uid) !== null)
             ?->handle;
+    }
+
+    /**
+     * What a form posts while the configuration does not build. The box that shows the
+     * stored map posts a map back, which is stored as it is. Two things are refused:
+     * what is no map, and the post of a panel that was open when the configuration
+     * stopped building (a deploy, then an autosave): its switches come as true/false
+     * and its sliders as places on their scale, neither can be turned into a key now,
+     * and stored as they are they would replace the block's choices.
+     *
+     * The refused value holds what the element has. A draft is autosaved without
+     * validation, so nothing else would stop an empty map from being written over it.
+     */
+    private function requestValueWithoutOptions(mixed $value, ?ElementInterface $element): DesignValue
+    {
+        $posted = is_array($value) && self::isPanelPost($value) ? null : $this->normalizeValue($value, $element);
+
+        if ($posted !== null && $posted->rejected() === null) {
+            return $posted;
+        }
+
+        // Still the element's value from before this request: it is set after this returns.
+        $current = $element?->getFieldValue($this->handle);
+
+        return new DesignValue(
+            $current instanceof DesignValue ? $current->toArray() : [],
+            [],
+            [],
+            rejected: $posted?->rejected() ?? Json::encode($value),
+            unresolved: true,
+        );
+    }
+
+    /**
+     * Whether a posted array comes from the panel's controls and not from the box that
+     * shows the stored map: only the panel posts a switch as a boolean or a slider's place.
+     *
+     * @param array<array-key,mixed> $posted
+     */
+    private static function isPanelPost(array $posted): bool
+    {
+        return array_key_exists(Registry::SLIDER_KEY, $posted) || array_any($posted, static fn(mixed $choice) => is_bool($choice));
     }
 
     /**

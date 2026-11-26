@@ -65,6 +65,7 @@ class Registry
      * @param array<string,list<string>> $styleUse Choice value (`icons`, `select`…) => handles of the options shown that way, before any swap
      * @param array<string,array<string,array{label:string,icon:?string}>> $baseOptions Group handle => option key => label and icon before the settings page changed them
      * @param array<string,string> $profileViews Profile name => view mode (`panel`, `summary`, `collapsed`) that replaces the field's own
+     * @param bool $standIn Stands in for a configuration that does not build ({@see standIn()})
      *
      * @author WMD
      * @since 1.0.0
@@ -79,7 +80,24 @@ class Registry
         public readonly array $styleUse = [],
         public readonly array $baseOptions = [],
         public readonly array $profileViews = [],
+        public readonly bool $standIn = false,
     ) {
+    }
+
+    /**
+     * The registry to read values with while the configuration does not build: it has no
+     * option, so a template gets empty tokens and prints its own defaults, and its values
+     * keep the stored choices as they are ({@see DesignValue::keys()}), so a save in the
+     * meantime changes nothing.
+     *
+     * @return self
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public static function standIn(): self
+    {
+        return new self([], [], standIn: true);
     }
 
     /**
@@ -408,7 +426,7 @@ class Registry
      */
     public function value(array $keys, string|array|null $profile): DesignValue
     {
-        return new DesignValue($keys, $this->groupsFor($profile), $this->groups);
+        return new DesignValue($keys, $this->groupsFor($profile), $this->groups, unresolved: $this->standIn);
     }
 
     /**
@@ -447,7 +465,7 @@ class Registry
 
         $rejected = is_string($input) ? $input : (is_scalar($input) ? Json::encode($input) : get_debug_type($input));
 
-        return new DesignValue([], $this->groupsFor($profile), $this->groups, rejected: $rejected);
+        return new DesignValue([], $this->groupsFor($profile), $this->groups, rejected: $rejected, unresolved: $this->standIn);
     }
 
     /**

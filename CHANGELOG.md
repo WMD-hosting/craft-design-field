@@ -2,7 +2,18 @@
 
 ## Unreleased
 
+### Added
+- The configuration check reports a config file left at the Craft 5 path, `config/design-field.php`, which Craft 6 does not read: an error while it is the only one (no option is configured), a warning beside `config/craft/design-field.php`. While it is the only one, admins also see it as a control-panel alert.
+
+### Changed
+- The plugin names its developer as WMD Hosting (https://wmd.hosting/), as its Plugin Store listing does, and its description in the control panel and on Packagist is one sentence.
+
 ### Fixed
+- A configuration that does not build no longer takes the site down. A profile naming a group that is gone, a missing token file or a syntax error in `config/craft/design-field.php` was an error page on every request that read a Design value, and on every save of such an element. Pages now keep rendering, with each template's own defaults instead of the design classes; stored choices stay as they are through a save, and a panel that was open when the file broke is refused instead of saved half-read; MCP and GraphQL read the stored map and MCP refuses to write Design options until the file is fixed. Every control-panel page shows an alert (admins read the reason, with a link to the settings page), the reason is logged once per request, and `design-field:check` still fails on it.
+- A config file of the wrong shape (a group that is a string, a file with a syntax error) is a finding of the configuration check and of the settings page, instead of a crash of both.
+- With such a configuration the registry is built once per request, not once per Design value on the page.
+- A stored choice `0` of an option the block does not have at the moment (a gap of `0` kept from another profile) is no longer dropped when the element is saved.
+- GraphQL reads a Design field as a JSON string of option handle => choice key again (`{"tone":"dark","spacing":"normal"}`), as 1.x did and as the README says. 2.x answered a query with the block's CSS classes (`"bg-black py-8"`), which name no choice and cannot be sent back in a mutation. An element without options reads as `{}`.
 - A value that is a list (`["dark"]`), or one whose choice is a list or a map (`{"tone": ["dark"]}`), is refused on save with "… is not a design value", whichever way it arrives. Sent through a GraphQL mutation or set from PHP it used to be accepted: the list was stored under `0` beside every default, and such a choice counted as not chosen, so the block's options were reset without an error. MCP already refused both by its schema.
 
 ## 2.0.0-beta.7 - 2026-11-26

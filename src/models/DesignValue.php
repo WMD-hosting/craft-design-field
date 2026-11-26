@@ -45,6 +45,8 @@ class DesignValue implements ArrayAccess, JsonSerializable, Stringable
      *     template used to see, also for groups outside the profile
      * @param ?string $rejected Input that was not a key map (a plain string, a
      *     number), kept so validation refuses it instead of saving defaults
+     * @param bool $unresolved Built while the configuration does not build: there are
+     *     no groups to resolve against, so the choices are the stored ones as they are
      *
      * @author WMD
      * @since 1.0.0
@@ -55,6 +57,7 @@ class DesignValue implements ArrayAccess, JsonSerializable, Stringable
         private readonly array $allGroups,
         private readonly bool $lenient = false,
         private readonly ?string $rejected = null,
+        private readonly bool $unresolved = false,
     ) {
     }
 
@@ -131,6 +134,10 @@ class DesignValue implements ArrayAccess, JsonSerializable, Stringable
     /**
      * Resolved option key per profile group.
      *
+     * While the configuration does not build there is nothing to resolve against: the
+     * stored choices are returned as they are, so what an API reads is what the block
+     * has, not an empty map that would reset it when written back.
+     *
      * @return array<string,string>
      *
      * @author WMD
@@ -138,6 +145,10 @@ class DesignValue implements ArrayAccess, JsonSerializable, Stringable
      */
     public function keys(): array
     {
+        if ($this->unresolved) {
+            return $this->_storedKeys();
+        }
+
         $keys = [];
 
         foreach (array_keys($this->groups) as $group) {
@@ -222,12 +233,7 @@ class DesignValue implements ArrayAccess, JsonSerializable, Stringable
      */
     public function toArray(): array
     {
-        $stored = array_filter(array_map(
-            static fn(mixed $key) => is_scalar($key) ? (string)$key : '',
-            $this->keys,
-        ));
-
-        return array_merge($stored, $this->keys());
+        return array_merge($this->_storedKeys(), $this->keys());
     }
 
     /**
@@ -326,6 +332,20 @@ class DesignValue implements ArrayAccess, JsonSerializable, Stringable
 
     // Private Methods
     // =========================================================================
+
+    /**
+     * The keys as stored or submitted, each as a string. Only an empty one is left
+     * out: `0` is a key like any other (a gap of `0`, a column count).
+     *
+     * @return array<string,string>
+     */
+    private function _storedKeys(): array
+    {
+        return array_filter(
+            array_map(static fn(mixed $key) => is_scalar($key) ? (string)$key : '', $this->keys),
+            static fn(string $key) => $key !== '',
+        );
+    }
 
     /**
      * @param string $group

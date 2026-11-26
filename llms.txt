@@ -34,9 +34,10 @@ blockPreviewUrl: '/path?type={type}&design={design}' - a site page that renders 
 groupOverrides.<group>: settings merged into a group everywhere (survives regeneration)
 profileOverrides.<profile>.<group>: settings for one profile only
 profile matching: field setting > "<matrixField>:<type>" > "<type>" > "*" > every group
+config that does not build (profile names an unknown group, missing token file, syntax error in the file): pages do not throw; every DesignValue then has no groups (empty tokens, has() false, classOr/keyOr give the fallback) and keys()/toArray() are the stored map, so a save keeps it; MCP and GraphQL read the stored map; MCP refuses every write of the field (input schema `not: {}`), a GraphQL mutation that sends the field is stored as sent, unchecked; a panel form posted then (switches as booleans, __slider) is refused; the Variant condition rule matches the stored variant; control panel alert, one log line per request, and the one finding of design-field:check
 
 ## Console
-php artisan design-field:check [--json] - configuration check and template check; exit 1 when there is something to fix
+php artisan design-field:check [--json] - configuration check and template check; exit 1 when there is something to fix. Reports a config file left at the Craft 5 path config/design-field.php (not read on Craft 6: error when it is the only one, warning beside config/craft/design-field.php).
 php artisan design-field:schema [--markdown] [--agents=FILE [--check]] - the option model as JSON or markdown; --agents writes it between <!-- design-field:start/end --> markers
 php artisan design-field:usage [--types=a,b] [--all] [--min=N] [--sample=N] [--months=N] [--json] - which choices editors use: never-changed, one-value, used; unused options
 
