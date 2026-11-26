@@ -5,7 +5,7 @@ Flat reference. Full prose is in README.md. Field type: wmd\designfield\fields\D
 ## Stored value
 JSON object, group handle => option key: {"variant":"cards","tone":"surface","columns":"4"}. Keys only, never CSS.
 GraphQL: JSON string of the same shape, read and write.
-Invalid keys are rejected on save (validation error "<key> is not an option of <group>").
+Invalid keys are rejected on save (validation error "<key> is not an option of <group>"). A value that is no map of handle => key (a plain string, a number, a list such as ["dark"], a choice that is a list or a map) is rejected whole ("... is not a design value"); null or "" for an option means not chosen.
 MCP (Craft's own server): elements_get returns {option: key} for the options the block has; elements_field_schema lists each option as a string enum of its keys (additionalProperties false); elements_update takes the same object on the block or nested in a Matrix field's input (entries[].{type}.design). Write back the whole object: missing options fall back to their defaults. Unknown option, key outside the enum or a non-object: refused, message names the option. json_encode(DesignValue) = the stored object.
 
 Condition rule (field layout "Show when"): wmd\designfield\fields\conditions\DesignVariantConditionRule, label "Design → Variant"; config {class, fieldUid, layoutElementUid, operator: in|ni|empty|notempty, values: [variant keys], uid}; matches the variant key of the element's Design value (unsaved choice included; `_default` when none picked; no variant group = empty); element conditions only, not query conditions.

@@ -14,6 +14,7 @@
 - With such a configuration the registry is built once per request, not once per Design value on the page.
 - A stored choice `0` of an option the block does not have at the moment (a gap of `0` kept from another profile) is no longer dropped when the element is saved.
 - GraphQL reads a Design field as a JSON string of option handle => choice key again (`{"tone":"dark","spacing":"normal"}`), as 1.x did and as the README says. 2.x answered a query with the block's CSS classes (`"bg-black py-8"`), which name no choice and cannot be sent back in a mutation. An element without options reads as `{}`.
+- A value that is a list (`["dark"]`), or one whose choice is a list or a map (`{"tone": ["dark"]}`), is refused on save with "… is not a design value", whichever way it arrives. Sent through a GraphQL mutation or set from PHP it used to be accepted: the list was stored under `0` beside every default, and such a choice counted as not chosen, so the block's options were reset without an error. MCP already refused both by its schema.
 
 ## 2.0.0-beta.7 - 2026-11-26
 
