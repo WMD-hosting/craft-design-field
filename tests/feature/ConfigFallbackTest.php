@@ -29,7 +29,9 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Mcp\Exception\ToolCallException;
+use wmd\designfield\fields\conditions\DesignVariantConditionRule;
 use wmd\designfield\fields\Design;
+use wmd\designfield\helpers\Registry;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\services\Groups;
 use wmd\designfield\services\Health;
@@ -134,6 +136,7 @@ final class ConfigFallbackTest extends PluginTestCase
         $field = new Design(['handle' => 'design', 'profile' => 'blockCta']);
 
         // The schema says the options cannot be written, not why: its readers are not all admins.
+        self::assertSame(['type', 'description', 'not'], array_keys($field->getInputSchema()));
         self::assertSame('object', $field->getInputSchema()['type']);
         self::assertStringContainsString('does not build', $field->getInputSchema()['description']);
         self::assertStringNotContainsString('notAGroup', $field->getInputSchema()['description']);
@@ -218,7 +221,7 @@ final class ConfigFallbackTest extends PluginTestCase
         );
     }
 
-    public function testAnAgentReadsTheStoredValueAndCannotResetItByWritingBackWhatItRead(): void
+    public function testAnAgentReadsTheStoredValueAndCanWriteNothingOverIt(): void
     {
         $this->configure(self::GOOD);
         $block = $this->createBlock(['tone' => 'dark', 'gap' => '0']);
@@ -231,14 +234,62 @@ final class ConfigFallbackTest extends PluginTestCase
         $read = $tools->get('entry', $block->id)['element']['design'];
         self::assertEquals(['tone' => 'dark', 'spacing' => 'normal', 'gap' => '0'], $read);
 
-        try {
-            $tools->update('entry', $block->id, fields: ['design' => $read]);
-            self::fail('A design value was written while the configuration does not build.');
-        } catch (ToolCallException $e) {
-            self::assertStringContainsString('/design', $e->getMessage());
+        // What it read, an empty map, nothing at all, a map of its own: no write gets through.
+        foreach ([$read, [], null, ['tone' => 'light']] as $sent) {
+            try {
+                $tools->update('entry', $block->id, fields: ['design' => $sent]);
+                self::fail('Written while the configuration does not build: ' . json_encode($sent));
+            } catch (ToolCallException $e) {
+                self::assertStringContainsString('/design', $e->getMessage());
+            }
+
+            self::assertSame($stored, $this->storedContent($block->id), json_encode($sent));
         }
 
+        // The rest of the element is still written, and the design with it stays as it was.
+        $tools->update('entry', $block->id, attributes: ['slug' => 'call-now']);
+        self::assertSame('call-now', Entry::find()->id($block->id)->status(null)->one()->slug);
         self::assertSame($stored, $this->storedContent($block->id));
+    }
+
+    public function testAPanelThatWasOpenWhenTheConfigurationBrokeCannotOverwriteTheChoices(): void
+    {
+        $this->configure(self::GOOD);
+        $block = $this->createBlock(['tone' => 'dark', 'gap' => '0']);
+        $stored = $this->storedContent($block->id);
+
+        $this->configure(self::BROKEN);
+
+        // The panel posts a slider as its place on a scale, a switch as true or false:
+        // without the options neither is a key, and what is left is not the block's map.
+        foreach ([['tone' => 'light', Registry::SLIDER_KEY => ['gap' => '1']], ['tone' => 'light', 'spacing' => true]] as $posted) {
+            $loaded = Entry::find()->id($block->id)->status(null)->one();
+            $loaded->setFieldValueFromRequest('design', $posted);
+
+            self::assertFalse(Elements::saveElement($loaded), json_encode($posted));
+            self::assertStringContainsString('cannot be saved from this form', implode(' ', $loaded->errors()->all()));
+            self::assertSame($stored, $this->storedContent($block->id));
+        }
+
+        // With the configuration back the same form is read as before.
+        $this->configure(self::GOOD);
+        $loaded = Entry::find()->id($block->id)->status(null)->one();
+        $loaded->setFieldValueFromRequest('design', ['tone' => 'light', Registry::SLIDER_KEY => ['gap' => '1']]);
+        self::assertTrue(Elements::saveElement($loaded), implode(' ', $loaded->errors()->all()));
+        self::assertEquals(['tone' => 'light', 'spacing' => 'normal', 'gap' => '4'], Entry::find()->id($block->id)->status(null)->one()->getFieldValue('design')->keys());
+    }
+
+    public function testAFieldShownForOneLayoutStaysInTheForm(): void
+    {
+        // The stored layout still answers "Show when Design → Variant is…".
+        $this->configure(self::BROKEN);
+        $field = new Design(['handle' => 'design', 'profile' => 'blockCta']);
+        self::assertSame('wide', DesignVariantConditionRule::variantKey($field->normalizeValue(['variant' => 'wide', 'tone' => 'dark'], null)));
+        self::assertNull(DesignVariantConditionRule::variantKey($field->normalizeValue(['tone' => 'dark'], null)));
+
+        // A block that has no layouts has none, as before.
+        $this->configure(self::GOOD);
+        self::assertNull(DesignVariantConditionRule::variantKey($field->normalizeValue(['variant' => 'wide', 'tone' => 'dark'], null)));
     }
 
     public function testTheEditPageOfAnElementStillOpens(): void

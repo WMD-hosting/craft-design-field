@@ -113,7 +113,7 @@ A config file written for 1.x works as it is: move it from `config/design-field.
 A profile that names a group that is gone, a token file that is missing or a syntax error in the config file does not take the site down. Until it is fixed:
 
 - **Pages keep rendering, without the design classes.** Every option reads as an empty token: `{{ block.design }}` prints nothing, `design.has('tone')` is false, `classOr()` and `keyOr()` give the template's own fallback, and a block draws its default layout. A page cache keeps what it rendered in that time, so clear it once the file is fixed.
-- **Stored choices stay as they are.** An element shows its Design value as the stored JSON instead of the panel, and saving the element writes that JSON back unchanged. MCP and GraphQL read the stored map; MCP refuses to write Design options.
+- **Stored choices stay as they are.** An element shows its Design value as the stored JSON instead of the panel, and saving the element writes that JSON back unchanged; fields shown for one layout only stay in the form. A panel that was open when the file broke is refused on save, with a message to reload the page. MCP and GraphQL read the stored map. MCP refuses every write of the field; a GraphQL mutation that sends it is stored as sent, unchecked, so leave the field out of mutations until the file is fixed.
 - **The control panel says so.** Every page shows an alert: admins read the reason, with a link to the settings page, and everyone else is told the options are away. The reason is also logged (once per request) and is the one finding of `php artisan design-field:check`, which exits with 1: run it in your deploy to stop such a file before it is live.
 
 ### Group settings

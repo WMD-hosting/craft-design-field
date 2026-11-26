@@ -62,6 +62,9 @@ class DesignVariantConditionRule extends BaseMultiSelectConditionRule implements
      * The variant a field value holds: its chosen key, the default one when none was picked,
      * and null when the element has no variants (or the value is no Design value).
      *
+     * While the configuration does not build, no element has variants; the stored key
+     * then stands (`keys()` is the stored map), so fields shown for a layout stay in the form.
+     *
      * @param mixed $value
      * @return string|null
      *
@@ -70,11 +73,11 @@ class DesignVariantConditionRule extends BaseMultiSelectConditionRule implements
      */
     public static function variantKey(mixed $value): ?string
     {
-        if (!$value instanceof DesignValue || !$value->has(self::GROUP)) {
+        if (!$value instanceof DesignValue) {
             return null;
         }
 
-        $key = $value->get(self::GROUP)->key;
+        $key = $value->has(self::GROUP) ? $value->get(self::GROUP)->key : ($value->keys()[self::GROUP] ?? '');
 
         return $key !== '' ? $key : null;
     }

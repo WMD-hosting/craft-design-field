@@ -34,9 +34,11 @@ use GraphQL\Type\Definition\Type;
 use Illuminate\Validation\Rule;
 use InvalidArgumentException;
 use Override;
+use stdClass;
 use wmd\designfield\events\DefinePanelGroups;
 use wmd\designfield\fields\conditions\DesignVariantConditionRule;
 use wmd\designfield\helpers\OptionOrder;
+use wmd\designfield\helpers\Registry;
 use wmd\designfield\http\SettingsScreen;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
@@ -151,6 +153,14 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
             $value = Json::decodeIfJson($value) ?? $value;
         }
 
+        // A panel that was open when the configuration stopped building (a deploy, then an
+        // autosave) posts switches as true/false and sliders as places on their scale.
+        // Neither can be turned into a key now, and stored as they are they would replace
+        // the block's choices: refused, so the element keeps what it has.
+        if (is_array($value) && app(Groups::class)->safeRegistry()->standIn && self::isPanelPost($value)) {
+            return new DesignValue([], [], [], rejected: Json::encode($value), unresolved: true);
+        }
+
         // The editor posts a switch as true/false (a plain form: its on key, or '' when off).
         // Sliders come as places on their scale (Registry::SLIDER_KEY), mapped by the registry.
         if (is_array($value)) {
@@ -219,15 +229,22 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
             }
         }
 
-        // Without a configuration there is no option to describe, so no option can be
-        // written: reads then return the stored map, which would otherwise be reset.
+        // Without a configuration there is no option to describe, and nothing sent could
+        // be checked: an empty map or null would pass and reset the block. So nothing
+        // matches (`not: {}`), and reads return the stored map meanwhile.
         // The reason stays out of the schema: whoever may read a schema is not always an
         // admin, and the reason can name a path on the server. It is logged and in the alert.
+        if (app(Groups::class)->failure() !== null) {
+            return [
+                'type' => 'object',
+                'description' => 'Design options cannot be written now: the Design Field configuration does not build. Leave this field out of the write, and tell an administrator of the site.',
+                'not' => new stdClass(),
+            ];
+        }
+
         return array_filter([
             'type' => 'object',
-            'description' => app(Groups::class)->failure() === null
-                ? 'Design options as option handle => choice key. Send the whole map: an option left out goes back to its default.'
-                : 'Design options cannot be written now: the Design Field configuration does not build. Leave this field out of the write, and tell an administrator of the site.',
+            'description' => 'Design options as option handle => choice key. Send the whole map: an option left out goes back to its default.',
             'properties' => $properties,
             'additionalProperties' => false,
         ], static fn(mixed $part) => $part !== []);
@@ -428,7 +445,9 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
                 }
 
                 if ($value->rejected() !== null) {
-                    $fail(sprintf('“%s” is not a design value. Send a JSON object of option handle => choice key, e.g. {"tone": "dark"}.', mb_strimwidth($value->rejected(), 0, 60, '…')));
+                    $fail(app(Groups::class)->failure() === null
+                        ? sprintf('“%s” is not a design value. Send a JSON object of option handle => choice key, e.g. {"tone": "dark"}.', mb_strimwidth($value->rejected(), 0, 60, '…'))
+                        : 'The design options cannot be saved from this form while the Design Field configuration does not build. What is stored is kept: reload the page.');
 
                     return;
                 }
@@ -561,6 +580,17 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
         return EntryTypes::getAllEntryTypes()
             ->first(static fn(EntryType $type) => $type->getFieldLayout()->getElementByUid($uid) !== null)
             ?->handle;
+    }
+
+    /**
+     * Whether a posted array comes from the panel's controls and not from the box that
+     * shows the stored map: only the panel posts a switch as a boolean or a slider's place.
+     *
+     * @param array<array-key,mixed> $posted
+     */
+    private static function isPanelPost(array $posted): bool
+    {
+        return array_key_exists(Registry::SLIDER_KEY, $posted) || array_any($posted, static fn(mixed $choice) => is_bool($choice));
     }
 
     /**
