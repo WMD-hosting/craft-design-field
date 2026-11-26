@@ -7,10 +7,13 @@
 
 namespace wmd\designfield;
 
+use CraftCms\Cms\Cp\Events\CpAlertsResolving;
 use CraftCms\Cms\Plugin\Plugin as BasePlugin;
 use CraftCms\Cms\Twig\Variables\CraftVariable;
 use CraftCms\Cms\Ui\UiControlTypes;
+use Illuminate\Support\Facades\Event;
 use Override;
+use Throwable;
 use wmd\designfield\http\SettingsScreen;
 use wmd\designfield\console\CheckCommand;
 use wmd\designfield\console\SchemaCommand;
@@ -18,11 +21,14 @@ use wmd\designfield\console\UsageCommand;
 use wmd\designfield\fields\Design;
 use wmd\designfield\services\Groups;
 use wmd\designfield\variables\DesignFieldVariable;
+use wmd\designfield\web\ConfigAlert;
 use wmd\designfield\web\controls\BlockPicker;
 use wmd\designfield\web\controls\Grid;
 use wmd\designfield\web\controls\PresetBlock;
 use wmd\designfield\web\controls\Rendered;
 use wmd\designfield\web\controls\Steps;
+
+use function CraftCms\Cms\currentUser;
 
 /**
  * Design Field for Craft 6: the Design field type with its panel and its Variant
@@ -109,5 +115,21 @@ class Plugin extends BasePlugin
     {
         CraftVariable::macro('designField', fn() => app(DesignFieldVariable::class));
         $controlTypes->register(Steps::class, Grid::class, Rendered::class, PresetBlock::class, BlockPicker::class);
+
+        // A configuration that does not build no longer stops a page, so the control
+        // panel has to say it. Alerts load on every page: never let this one break them.
+        Event::listen(CpAlertsResolving::class, static function(CpAlertsResolving $event): void {
+            try {
+                $alert = app(ConfigAlert::class)->html((bool)currentUser()?->isAdmin());
+            } catch (Throwable $e) {
+                report($e);
+
+                return;
+            }
+
+            if ($alert !== null) {
+                $event->alerts[] = $alert;
+            }
+        });
     }
 }
