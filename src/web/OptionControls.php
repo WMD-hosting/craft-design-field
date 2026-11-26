@@ -422,8 +422,13 @@ class OptionControls
             $choice = ['label' => $option['label'], 'value' => $key];
             $labelHtml = self::labelHtml($group, $option);
 
+            // A layout tile says what it shows under its name, when its option has a description.
+            $note = $group->input === Group::INPUT_TILES ? trim((string)($option['description'] ?? '')) : '';
+
             if ($labelHtml !== null) {
                 $choice['labelHtml'] = $labelHtml;
+            } elseif ($note !== '') {
+                $choice['labelHtml'] = OptionLabels::tile((string)$option['label'], $note);
             } elseif ($option['icon'] !== null && !OptionLabels::isSvg($option['icon'])) {
                 $choice['icon'] = $option['icon'];
             }

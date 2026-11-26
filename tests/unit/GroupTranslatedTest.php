@@ -25,6 +25,16 @@ final class GroupTranslatedTest extends TestCase
         self::assertSame(['[Block default]', '[Light]', '[Night]'], array_column($translated->options, 'label'));
     }
 
+    public function testAChoicesDescriptionIsTranslatedToo(): void
+    {
+        $group = Group::fromConfig('variant', ['label' => 'Layout'], ['row' => ['value' => 'row', 'label' => 'Row', 'description' => 'Logos in a row']]);
+
+        $translated = $group->translated(static fn(string $text) => "[$text]");
+
+        self::assertSame('[Logos in a row]', $translated->options['row']['description']);
+        self::assertNull($translated->options['auto']['description'] ?? null, 'none stays none');
+    }
+
     public function testKeysClassesAndTheRestStay(): void
     {
         $group = Group::fromConfig('tone', ['label' => 'Tone', 'input' => 'select', 'showIf' => ['variant' => ['band']]], [

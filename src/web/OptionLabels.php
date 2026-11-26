@@ -228,6 +228,28 @@ final class OptionLabels
      * @param string $label
      * @return string
      */
+    /**
+     * A tile's name with a line under it on what it shows (an option's `description`), cut to two lines on the tile
+     * and whole in its tooltip.
+     *
+     * @param string $label
+     * @param string $note
+     * @return string
+     *
+     * @author WMD
+     * @since 2.0.0
+     */
+    public static function tile(string $label, string $note): string
+    {
+        $escape = static fn(string $text): string => htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        return Html::tag('span', Html::tag('span', $escape($label), ['class' => 'df-tile-name'])
+            . Html::tag('span', $escape($note), ['class' => 'df-tile-note']), [
+            'class' => 'df-tile',
+            'title' => $note,
+        ]);
+    }
+
     private static function text(string $label): string
     {
         return Html::tag('span', htmlspecialchars($label, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), ['class' => 'df-text']);

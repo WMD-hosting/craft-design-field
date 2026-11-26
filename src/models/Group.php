@@ -385,8 +385,8 @@ class Group
 
     /**
      * Returns a copy with every text an editor reads passed through `$translate`: the
-     * option's label, its help text, its section heading and each choice's label. Keys,
-     * classes and pictures stay, so saved values and templates read the same.
+     * option's label, its help text, its section heading and each choice's label and
+     * description. Keys, classes and pictures stay, so saved values and templates read the same.
      *
      * @param callable(string):string $translate
      * @return self
@@ -401,6 +401,10 @@ class Group
 
         foreach ($options as $key => $option) {
             $options[$key]['label'] = $text((string)$option['label']);
+
+            if (is_string($option['description'] ?? null)) {
+                $options[$key]['description'] = $text($option['description']);
+            }
         }
 
         return new self(

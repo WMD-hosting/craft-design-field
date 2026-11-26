@@ -15,6 +15,7 @@ use CraftCms\Cms\Ui\UiHtmlRenderer;
 use CraftCms\Cms\Ui\UiResolver;
 use wmd\designfield\fields\Design;
 use wmd\designfield\helpers\Registry;
+use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
 use wmd\designfield\web\controls\Grid;
 use wmd\designfield\web\controls\Rendered;
@@ -372,6 +373,26 @@ final class OptionLooksTest extends PluginTestCase
         self::assertInstanceOf(Choice::class, OptionControls::control($this->group('styled'), 'a'), 'one icon, one name');
         self::assertInstanceOf(Grid::class, OptionControls::control($this->group('size'), 'sm'), '"Aa" samples draw a size without its name: read out the chosen one');
         self::assertInstanceOf(Choice::class, OptionControls::control($this->group('plain'), 'sm'), 'textOnly keeps plain named buttons');
+    }
+
+    public function testALayoutTileSaysWhatItShowsUnderItsNameWhenItsOptionHasADescription(): void
+    {
+        $group = Group::fromConfig('variant', ['label' => 'Layout', 'input' => 'tiles'], [
+            'row' => ['value' => 'row', 'label' => 'Trust <row>', 'description' => 'A sticky label & a marquee'],
+            'grid' => ['value' => 'grid', 'label' => 'Grid'],
+            'blank' => ['value' => 'blank', 'label' => 'Blank', 'description' => '  '],
+        ]);
+        $options = array_column(OptionControls::options($group, 'row'), null, 'value');
+
+        self::assertSame('Trust <row>', $options['row']['label']);
+        self::assertStringContainsString('<span class="df-tile-name">Trust &lt;row&gt;</span>', $options['row']['labelHtml']);
+        self::assertStringContainsString('<span class="df-tile-note">A sticky label &amp; a marquee</span>', $options['row']['labelHtml']);
+        self::assertStringContainsString('title="A sticky label &amp; a marquee"', $options['row']['labelHtml']);
+        self::assertArrayNotHasKey('labelHtml', $options['grid'], 'no description: the name alone');
+        self::assertArrayNotHasKey('labelHtml', $options['blank'], 'an empty description says nothing');
+
+        $buttons = Group::fromConfig('align', ['label' => 'Align'], ['left' => ['value' => 'left', 'label' => 'Left', 'description' => 'Text on the left']]);
+        self::assertArrayNotHasKey('labelHtml', array_column(OptionControls::options($buttons, 'left'), null, 'value')['left'], 'only tiles show it');
     }
 
     public function testStyleRulesInsideAnSvgIconAreDropped(): void
