@@ -61,6 +61,32 @@ final class ValueFromInputTest extends TestCase
         self::assertSame([], $value->invalid());
     }
 
+    public function testAStoredZeroOutsideTheProfileSurvivesASave(): void
+    {
+        // `gap` belongs to another block's profile: its key is kept for when the block
+        // gets the option back, and `0` is a key like any other.
+        $value = $this->registry()->valueFromInput(['tone' => 'dark', 'gap' => '0', 'old' => ''], 'blockCta');
+
+        self::assertSame(['tone' => 'dark', 'gap' => '0', 'spacing' => 'tight'], $value->toArray());
+    }
+
+    public function testWithoutAConfigurationAValueKeepsWhatIsStored(): void
+    {
+        $value = Registry::standIn()->valueFromInput('{"tone":"dark","gap":"0","columns":3}', ['pageBuilder:blockCta', 'blockCta']);
+
+        self::assertSame(['tone' => 'dark', 'gap' => '0', 'columns' => '3'], $value->toArray());
+        self::assertSame($value->toArray(), $value->keys(), 'an API reads the stored map, not an empty one');
+        self::assertSame('', (string)$value);
+        self::assertSame('', $value->tone->key);
+        self::assertSame([], $value->groups());
+        self::assertSame([], $value->changes());
+        self::assertSame([], $value->invalid());
+        self::assertNull($value->rejected());
+
+        // What is no map is still refused, so a save cannot replace the map with it.
+        self::assertSame('dark', Registry::standIn()->valueFromInput('dark', 'blockCta')->rejected());
+    }
+
     public function testASliderPostedAsItsPlaceOnTheScaleBecomesItsKey(): void
     {
         $registry = $this->registry();
