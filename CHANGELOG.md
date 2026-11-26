@@ -1,5 +1,10 @@
 # Release Notes for Design Field
 
+## Unreleased
+
+### Fixed
+- The panel's summary ("Options · N changes" and the "Option: Choice" list) names a choice as the panel does: with the groups after `DefinePanelGroups`, so a listener's shorter name for a layout shows there too, not the config's long label.
+
 ## 2.0.0-beta.9 - 2026-11-26
 
 ### Added
