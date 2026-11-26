@@ -24,6 +24,7 @@ use wmd\designfield\helpers\OptionOrder;
 use wmd\designfield\helpers\Positions;
 use wmd\designfield\helpers\Sections;
 use wmd\designfield\helpers\SideColumns;
+use wmd\designfield\helpers\Translations;
 use wmd\designfield\models\DesignValue;
 use wmd\designfield\models\Group;
 use wmd\designfield\services\Groups;
@@ -75,7 +76,7 @@ class OptionControls
      */
     public static function panel(DesignValue $value, string $mode = Design::VIEW_PANEL, bool $open = false, string $layout = Design::LAYOUT_SECTIONS, ?array $groups = null, array $hidden = [], array $usage = []): Ui
     {
-        $nodes = self::nodes($groups ?? $value->groups(), $value->keys(), $layout, $hidden, $usage);
+        $nodes = self::nodes(Translations::groups($groups ?? $value->groups()), $value->keys(), $layout, $hidden, $usage);
 
         if ($mode !== Design::VIEW_SUMMARY && $mode !== Design::VIEW_COLLAPSED) {
             return Ui::make($nodes);
@@ -84,14 +85,11 @@ class OptionControls
         $changes = self::changes($value);
 
         if ($mode === Design::VIEW_COLLAPSED) {
-            $count = match (count($changes)) {
-                0 => 'Defaults',
-                1 => '1 change',
-                default => count($changes) . ' changes',
-            };
-
             return Ui::make([
-                GroupNode::make('design-view', $nodes)->label("Options · $count")->collapsible()->expanded($open),
+                GroupNode::make('design-view', $nodes)
+                    ->label(Translations::own('Options · {count, plural, =0{Defaults} one{# change} other{# changes}}', ['count' => count($changes)]))
+                    ->collapsible()
+                    ->expanded($open),
             ]);
         }
 
@@ -99,13 +97,14 @@ class OptionControls
             // Labels are plain text: keep Markdown from reading them as markup.
             MarkdownContent::make('design-summary', $changes !== []
                 ? (string)preg_replace('/([\\\\`*_\[\]<>#|~])/', '\\\\$1', implode(' · ', $changes))
-                : 'All options at their defaults.')->displayInPane(false),
-            GroupNode::make('design-view', $nodes)->label('Edit')->collapsible()->expanded($open),
+                : Translations::own('All options at their defaults.'))->displayInPane(false),
+            GroupNode::make('design-view', $nodes)->label(Translations::own('Edit'))->collapsible()->expanded($open),
         ]);
     }
 
     /**
-     * What differs from the defaults, one "Option: Choice" per changed option.
+     * What differs from the defaults, one "Option: Choice" per changed option, in the
+     * editor's language.
      *
      * @param DesignValue $value
      * @return list<string>
@@ -115,7 +114,7 @@ class OptionControls
      */
     public static function changes(DesignValue $value): array
     {
-        $groups = $value->groups();
+        $groups = Translations::groups($value->groups());
         $changes = [];
 
         foreach ($value->changes() as $handle => $key) {
@@ -127,7 +126,8 @@ class OptionControls
 
     /**
      * The presets a block offers, as the preset row takes them: each option's value as
-     * that option's control holds it, and a line naming every choice for the tooltip.
+     * that option's control holds it, and a line naming every choice for the tooltip,
+     * named in the editor's language.
      *
      * @param array<int,array{label:string,values:array<string,string>}> $presets From Registry::presetsFor()
      * @param array<string,Group> $groups The block's options
@@ -138,6 +138,7 @@ class OptionControls
      */
     public static function presets(array $presets, array $groups): array
     {
+        $groups = Translations::groups($groups);
         $rows = [];
 
         foreach ($presets as $preset) {
@@ -149,7 +150,7 @@ class OptionControls
                 $summary[] = $groups[$handle]->label . ': ' . $groups[$handle]->options[$key]['label'];
             }
 
-            $rows[] = ['label' => $preset['label'], 'summary' => implode(' · ', $summary), 'values' => $values];
+            $rows[] = ['label' => Translations::site($preset['label']), 'summary' => implode(' · ', $summary), 'values' => $values];
         }
 
         return $rows;
@@ -175,7 +176,7 @@ class OptionControls
     }
 
     /**
-     * The panel for one block: its options under their section headings.
+     * The panel for one block: its options under their section headings, in the editor's language.
      *
      * @param array<string,Group> $groups The block's options, in panel order
      * @param array<string,string> $keys Option handle => current choice
@@ -187,11 +188,12 @@ class OptionControls
      */
     public static function ui(array $groups, array $keys, bool $headings = true): Ui
     {
-        return Ui::make(self::nodes($groups, $keys, $headings ? Design::LAYOUT_SECTIONS : Design::LAYOUT_INLINE));
+        return Ui::make(self::nodes(Translations::groups($groups), $keys, $headings ? Design::LAYOUT_SECTIONS : Design::LAYOUT_INLINE));
     }
 
     /**
-     * The options as nodes: a group per section, or one list (inline).
+     * The options as nodes: a group per section, or one list (inline). The groups' texts are
+     * shown as given: panel() and ui() pass them in the editor's language.
      *
      * Side by side, the sections stand in two columns of about the same height, in
      * reading order: the left column holds the first sections, the right one the rest,
@@ -451,10 +453,12 @@ class OptionControls
         }
 
         $byKey = array_column($options, null, 'value');
+        $top = Translations::own('Most used');
+        $rest = Translations::own('All choices');
 
         return [
-            ...array_map(static fn(string $key) => $byKey[$key] + ['group' => 'Most used'], $split['top']),
-            ...array_map(static fn(string $key) => $byKey[$key] + ['group' => 'All choices'], $split['rest']),
+            ...array_map(static fn(string $key) => $byKey[$key] + ['group' => $top], $split['top']),
+            ...array_map(static fn(string $key) => $byKey[$key] + ['group' => $rest], $split['rest']),
         ];
     }
 

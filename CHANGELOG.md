@@ -1,5 +1,11 @@
 # Release Notes for Design Field
 
+## Unreleased
+
+### Added
+- The Design panel speaks the editor's language. The names a site's config gives its options, choices, section headings, help text and presets are translated in Craft's `site` category, as Craft translates field names: a site gives them in `lang/<locale>/site.php`, keyed by the config's English. The summary line, the presets' names and the "Option: Choice" tooltips follow. A name without a translation stays as the config has it; saved values, templates, the settings page, validation messages and the schema for agents keep the config's words.
+- The panel's own words (Edit, Options · N changes, All options at their defaults, Most used, All choices, Presets) are translated in the plugin's category `design-field`, with Croatian included.
+
 ## 2.0.0-beta.6 - 2026-11-24
 
 ### Changed
