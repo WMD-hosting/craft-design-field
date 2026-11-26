@@ -1,5 +1,10 @@
 # Release Notes for Design Field
 
+## Unreleased
+
+### Fixed
+- GraphQL reads a Design field as a JSON string of option handle => choice key again (`{"tone":"dark","spacing":"normal"}`), as 1.x did and as the README says. 2.x answered a query with the block's CSS classes (`"bg-black py-8"`), which name no choice and cannot be sent back in a mutation. An element without options reads as `{}`.
+
 ## 2.0.0-beta.7 - 2026-11-26
 
 ### Added

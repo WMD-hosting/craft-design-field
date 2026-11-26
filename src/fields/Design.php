@@ -225,6 +225,33 @@ class Design extends Field implements InputSchemaFieldInterface, McpOutputFieldI
     }
 
     /**
+     * The GraphQL API reads the value as it takes it: a JSON string of option handle =>
+     * choice key, for the options the element has. Without this, core's string type
+     * prints the value, which is the class list a template gets from `{{ block.design }}`.
+     *
+     * @return array{name:string,type:Type,description:string,resolve:Closure(mixed):?string}
+     */
+    #[Override]
+    public function getContentGqlType(): array
+    {
+        return [
+            'name' => $this->handle,
+            'type' => Type::string(),
+            'description' => 'The chosen key of every design option the element has, as a JSON object of option handle => choice key.',
+            'resolve' => function(mixed $source): ?string {
+                $value = match (true) {
+                    is_object($source) && method_exists($source, 'getFieldValue') => $source->getFieldValue($this->handle),
+                    is_array($source) => $source[$this->handle] ?? null,
+                    default => null,
+                };
+
+                // An object also when there is no option: `{}`, never the list `[]`.
+                return $value instanceof DesignValue ? Json::encode((object)$value->keys()) : null;
+            },
+        ];
+    }
+
+    /**
      * The GraphQL API keeps taking the value as a JSON string. Inside another field's
      * input (a Matrix block), MCP describes it by `inputSchema` and hands the map to
      * {@see normalizeValue()} as given.

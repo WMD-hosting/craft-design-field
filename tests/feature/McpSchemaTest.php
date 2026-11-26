@@ -8,6 +8,8 @@ use CraftCms\Cms\Entry\Data\EntryType;
 use CraftCms\Cms\Entry\Elements\Entry;
 use CraftCms\Cms\Field\Contracts\InputSchemaFieldInterface;
 use CraftCms\Cms\Field\Matrix;
+use CraftCms\Cms\Gql\Data\GqlSchema;
+use CraftCms\Cms\Gql\Gql;
 use CraftCms\Cms\FieldLayout\FieldLayoutTab;
 use CraftCms\Cms\FieldLayout\LayoutElements\CustomField;
 use CraftCms\Cms\Mcp\Capabilities\Elements as ElementTools;
@@ -29,7 +31,8 @@ use wmd\designfield\services\Groups;
 /**
  * An agent reads and writes Design values through Craft's own MCP element tools
  * (`elements_field_schema`, `elements_get`, `elements_update`), called in-process
- * on a page whose `pageBuilder` Matrix field holds the blocks.
+ * on a page whose `pageBuilder` Matrix field holds the blocks. The GraphQL API
+ * reads and takes the same map, as a JSON string.
  */
 final class McpSchemaTest extends PluginTestCase
 {
@@ -203,9 +206,68 @@ final class McpSchemaTest extends PluginTestCase
         self::assertSame('dark', $field->normalizeValue('{"tone":"dark"}', null)->toArray()['tone']);
     }
 
+    public function testTheGraphqlApiReadsTheKeysAsAJsonString(): void
+    {
+        $result = $this->graphql('{ entries(section: "pages") { ... on page_Entry { pageBuilder { __typename ... on blockCta_Entry { design } ... on blockTeam_Entry { design } } } } }');
+
+        self::assertArrayNotHasKey('errors', $result);
+        $read = array_column($result['data']['entries'][0]['pageBuilder'], 'design', '__typename');
+
+        // The keys, never the classes `{{ block.design }}` prints ("bg-black py-8 opacity-50").
+        self::assertSame('{"tone":"dark","spacing":"normal","border":"off","shade":"soft"}', $read['blockCta_Entry']);
+        // Inside the page builder the team block has tone and spacing.
+        self::assertSame('{"tone":"light","spacing":"normal"}', $read['blockTeam_Entry']);
+
+        // The same map MCP reads, and what a mutation takes back as it is.
+        self::assertSame($this->design('blockCta'), json_decode($read['blockCta_Entry'], true));
+        $field = Entry::find()->id($this->blocks['blockCta'])->one()->getFieldLayout()->getFieldByHandle('design');
+        self::assertSame(
+            $this->design('blockCta'),
+            $field->normalizeValue($read['blockCta_Entry'], Entry::find()->id($this->blocks['blockCta'])->one())->keys(),
+        );
+    }
+
+    public function testTheGraphqlApiReadsAnAliasedFieldAndAnElementWithoutOptions(): void
+    {
+        $aliased = $this->graphql('{ entries(section: "pages") { ... on page_Entry { pageBuilder { ... on blockCta_Entry { look: design } } } } }');
+        self::assertSame('{"tone":"dark","spacing":"normal","border":"off","shade":"soft"}', $aliased['data']['entries'][0]['pageBuilder'][0]['look']);
+
+        // No option configured at all: an empty JSON object, not a list.
+        $this->app->instance(Groups::class, new class() extends Groups {
+            public function config(): array
+            {
+                return ['groups' => [], 'profiles' => []] + parent::config();
+            }
+        });
+        $this->app->make(Gql::class)->flushCaches();
+
+        $bare = $this->graphql('{ entries(section: "pages") { ... on page_Entry { pageBuilder { ... on blockCta_Entry { design } } } } }');
+        self::assertSame('{}', $bare['data']['entries'][0]['pageBuilder'][0]['design']);
+    }
+
     private function tools(): ElementTools
     {
         return $this->app->make(ElementTools::class);
+    }
+
+    /**
+     * Runs a query through Craft's GraphQL service with a schema that may read everything.
+     *
+     * @return array<string,mixed>
+     */
+    private function graphql(string $query): array
+    {
+        $gql = $this->app->make(Gql::class);
+        $scope = [];
+        $collect = static function(array $components) use (&$scope, &$collect): void {
+            foreach ($components as $name => $component) {
+                $scope[] = $name;
+                $collect($component['nested'] ?? []);
+            }
+        };
+        array_map($collect, $gql->getAllSchemaComponents()['queries']);
+
+        return $gql->executeQuery(new GqlSchema(['name' => 'Test', 'scope' => $scope]), $query);
     }
 
     /**
