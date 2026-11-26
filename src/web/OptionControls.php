@@ -82,7 +82,7 @@ class OptionControls
             return Ui::make($nodes);
         }
 
-        $changes = self::changes($value);
+        $changes = self::changes($value, $groups);
 
         if ($mode === Design::VIEW_COLLAPSED) {
             return Ui::make([
@@ -104,21 +104,25 @@ class OptionControls
 
     /**
      * What differs from the defaults, one "Option: Choice" per changed option, in the
-     * editor's language.
+     * editor's language. With the panel's own groups (after DefinePanelGroups) it names a
+     * choice as the panel does: a listener's shorter name for a layout, not the config's.
      *
      * @param DesignValue $value
+     * @param array<string,Group>|null $groups The panel's groups; null for the value's own
      * @return list<string>
      *
      * @author WMD
      * @since 2.0.0
      */
-    public static function changes(DesignValue $value): array
+    public static function changes(DesignValue $value, ?array $groups = null): array
     {
-        $groups = Translations::groups($value->groups());
+        $own = $value->groups();
+        $groups = Translations::groups(array_merge($own, array_intersect_key($groups ?? [], $own)));
         $changes = [];
 
         foreach ($value->changes() as $handle => $key) {
-            $changes[] = $groups[$handle]->label . ': ' . $groups[$handle]->options[$key]['label'];
+            $group = $groups[$handle];
+            $changes[] = $group->label . ': ' . ($group->options[$key]['label'] ?? $own[$handle]->options[$key]['label']);
         }
 
         return $changes;

@@ -404,6 +404,25 @@ final class OptionLooksTest extends PluginTestCase
         self::assertStringNotContainsString('display:none', $options[0]['labelHtml']);
     }
 
+    public function testTheSummaryNamesAChoiceAsThePanelDoes(): void
+    {
+        $registry = Registry::fromConfig([
+            'groups' => ['tone' => ['options' => ['light' => 'x', 'dark' => 'y'], 'default' => 'light']],
+            'profiles' => ['blockCta' => [
+                'variant' => ['label' => 'Layout', 'options' => ['_default' => ['label' => 'Default'], 'trust' => ['label' => 'Trust row: a sticky label and a marquee']]],
+                'tone',
+            ]],
+        ], static fn() => []);
+        $value = $registry->value(['variant' => 'trust', 'tone' => 'dark'], 'blockCta');
+        $panel = ['variant' => $value->groups()['variant']->withOptionMeta(['trust' => ['label' => 'Trust row', 'description' => 'A sticky label and a marquee']])];
+
+        // The config's label without the panel's groups, the listener's shorter name with them.
+        self::assertSame(['Layout: Trust row: a sticky label and a marquee', 'Tone: Dark'], OptionControls::changes($value));
+        self::assertSame(['Layout: Trust row', 'Tone: Dark'], OptionControls::changes($value, $panel));
+        // A group the panel does not have stays the value's own.
+        self::assertSame(['Layout: Trust row: a sticky label and a marquee', 'Tone: Dark'], OptionControls::changes($value, ['other' => $panel['variant']]));
+    }
+
     public function testThePanelUsesTheSliderInTheEditor(): void
     {
         $field = new Design(['handle' => 'design', 'profile' => 'blockLooks']);
