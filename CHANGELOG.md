@@ -1,5 +1,10 @@
 # Release Notes for Design Field
 
+## Unreleased
+
+### Changed
+- The plugin names its developer as WMD Hosting (https://wmd.hosting/), as its Plugin Store listing does, and its description in the control panel and on Packagist is one sentence.
+
 ## 2.0.0-beta.7 - 2026-11-26
 
 ### Added
